@@ -1,0 +1,8 @@
+.vscode/
+.cache/
+
+.clangd
+.clang-format
+build/
+tests/
+testsets/
