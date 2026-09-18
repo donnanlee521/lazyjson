@@ -2,10 +2,13 @@
 #ifndef LAZYJSON_HPP
 #define LAZYJSON_HPP
 
+#include <array>
 #include <cctype>
 #include <concepts>
+#include <functional>
 #include <istream>
 #include <memory>
+#include <ostream>
 #include <type_traits>
 #include <map>
 #include <string_view>
@@ -35,9 +38,10 @@ std::string_view json_tag_err_to_string(json_tag_err val) noexcept;
 
 
 class json;
+template<std::size_t I> class json_formatter;
+
 
 using json_key_type = json_key;
-
 using json_array = std::vector<json>;
 using json_dict = std::map<json_key_type, json>;
 
@@ -118,11 +122,12 @@ public:
   template<std::floating_point V>
   operator V() const;
   operator std::string_view() const;
+  operator bool() const;
 
-  json_array const& get_array() const;
-  json_dict const& get_dict() const;
   json_array& get_array();
+  json_array const& get_array() const;
   json_dict& get_dict();
+  json_dict const& get_dict() const;
 
   std::size_t index() const noexcept;
 
@@ -139,12 +144,20 @@ public:
   json& operator[](std::basic_string_view<char_type> key);
   json const& operator[](std::basic_string_view<char_type> key) const;
 
+  json& at(std::size_t idx);
+  json const& at(std::size_t idx) const;
+  json& at(std::string_view idx);
+  json const& at(std::string_view idx) const;
+
   json const& parse_all() const;
   std::vector<std::string_view> keys() const;
   
   static json from_string_view(std::string_view json_raw, std::size_t *e=nullptr);
 
   friend std::ostream& operator<<(std::ostream& os, json const& self);
+
+  template<std::size_t J>
+  friend std::ostream& operator<<(std::ostream& os, json_formatter<J> const& val);
 };
 
 
@@ -174,6 +187,69 @@ public:
   friend std::ostream& operator<<(std::ostream& os, json_container const& self);
   friend std::istream& operator>>(std::istream& is, json_container &self);
 };
+
+
+template<std::size_t I=4>
+class json_formatter {
+  std::reference_wrapper<const json> ref_;
+  std::uint32_t lvl_;
+
+  consteval static std::array<char, I> make_indent() noexcept {
+    std::array<char, I> indent;
+    indent.fill(' ');
+    return indent;
+  }
+
+  constexpr static std::array<char, I> indent{ make_indent() };
+
+  static std::ostream& write_indent(std::ostream& os, std::size_t lvl) {
+    for(std::size_t i{}; i < lvl; ++i) {
+      os.write(indent.data(), I);
+    }
+    return os;
+  }
+public:
+  json_formatter(json const& ref, std::uint32_t lvl=0) noexcept : ref_{ ref }, lvl_{ lvl } {}
+
+  template<std::size_t J>
+  friend std::ostream& operator<<(std::ostream& os, json_formatter<J> const& val);
+};
+
+
+template<std::size_t J>
+std::ostream& operator<<(std::ostream& os, json_formatter<J> const& val) {
+  std::visit([&os, &val](auto&& p) {
+    using T = std::decay_t<decltype(p)>;
+    if constexpr (std::same_as<T, typename json::tag_array_type>) {
+      std::size_t i{};
+      const std::size_t e{p.size()};
+      val.write_indent(os << "[\n", val.lvl_+1);
+      for (auto const& v : p) {
+        os << json_formatter<J>{ v, val.lvl_+1 };
+        if (++i < e) {
+          val.write_indent(os << ",\n", val.lvl_ + 1);
+        } 
+      }
+      val.write_indent(os << '\n', val.lvl_) << ']';
+      // val.write_indent(os, val.lvl_);
+    } else if constexpr (std::same_as<T, typename json::tag_dict_type>) {
+      std::size_t i{};
+      const std::size_t e{p.size()};
+    
+      val.write_indent(os << "{\n", val.lvl_+1);
+      for (auto const& [k, v] : p) {
+        os << k << " : " << json_formatter<J>{ v, val.lvl_+1 };
+        if (++i < e) {
+          val.write_indent(os << ",\n", val.lvl_+1);
+        }
+      }
+      val.write_indent(os << '\n', val.lvl_) << '}';
+    } else {
+      os << p;
+    }
+  }, val.ref_.get().item);
+  return os;
+}
 
 
 }  // namespace lazy
