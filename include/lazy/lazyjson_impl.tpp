@@ -2,20 +2,24 @@
 #define LAZYJSON_TPP
 
 #include <utility>
+
 #include "lazyjson.hpp"
 
 namespace lazy {
 
-template<std::size_t N>
-bool json::compare_ref_string(char_const_pointer_type b, char_const_pointer_type e, const char (&cmp)[N]) noexcept {
-  constexpr auto N0 { N - 1 };
-  return ((e-b) >= N0) && [&b, &e, &cmp]<std::size_t... Is>(std::index_sequence<Is...>) noexcept {
+template <std::size_t N>
+bool json::compare_ref_string(char_const_pointer_type b,
+                              char_const_pointer_type e,
+                              const char (&cmp)[N]) noexcept {
+  constexpr auto N0{N - 1};
+  return ((e - b) >= N0) && [&b, &e, &cmp]<std::size_t... Is>(
+                                std::index_sequence<Is...>) noexcept {
     return ((cmp[Is] == b[Is]) && ...);
   }(std::make_index_sequence<N0>{});
 };
 
-template<std::size_t I, bool GenIfNull, typename R>
-    requires (json::VALUE_ARR_TAG_IDX <= I && I <= json::VALUE_DICT_TAG_IDX)
+template <std::size_t I, bool GenIfNull, typename R>
+  requires(json::VALUE_ARR_TAG_IDX <= I && I <= json::VALUE_DICT_TAG_IDX)
 R& json::get_container_of() {
   if constexpr (GenIfNull) {
     if (std::holds_alternative<null_type>(this->item)) {
@@ -25,69 +29,65 @@ R& json::get_container_of() {
   return std::get<I>(this->item);
 }
 
-template<std::size_t I, typename R>
-    requires (json::VALUE_ARR_TAG_IDX <= I && I <= json::VALUE_DICT_TAG_IDX)
+template <std::size_t I, typename R>
+  requires(json::VALUE_ARR_TAG_IDX <= I && I <= json::VALUE_DICT_TAG_IDX)
 R const& json::get_container_of() const {
   return std::get<I>(this->item);
 }
 
-
-template<bool V>
-json::tag_return_type json::tag_json_boolean(value_type& tag, char_const_pointer_type b, const char_const_pointer_type e) noexcept {
-  constexpr static auto N = (V ? sizeof(json_boolean::true_exp) : sizeof(json_boolean::false_exp)) - 1;
-  if constexpr(V) {
+template <bool V>
+json::tag_return_type json::tag_json_boolean(
+    value_type& tag, char_const_pointer_type b,
+    const char_const_pointer_type e) noexcept {
+  constexpr static auto N =
+      (V ? sizeof(json_boolean::true_exp) : sizeof(json_boolean::false_exp)) -
+      1;
+  if constexpr (V) {
     if (!compare_ref_string(b, e, json_boolean::true_exp)) {
-      return { b, json_tag_err::invalid_expression };
+      return {b, json_tag_err::invalid_expression};
     }
     tag.emplace<json_boolean>(true);
   } else {
     if (!compare_ref_string(b, e, json_boolean::false_exp)) {
-      return { b, json_tag_err::invalid_expression };
+      return {b, json_tag_err::invalid_expression};
     }
     tag.emplace<json_boolean>(false);
   }
-  return { b + N, json_tag_err::success };
+  return {b + N, json_tag_err::success};
 }
 
-
-
-template<std::integral T, typename U>
-json::json(T val) noexcept
-  : item{ std::in_place_type<U>, val } {}
+template <std::integral T, typename U>
+json::json(T val) noexcept : item{std::in_place_type<U>, val} {}
 
 json::json(std::floating_point auto val) noexcept
-  : item{std::in_place_type<floating_type>, val} {}
+    : item{std::in_place_type<floating_type>, val} {}
 
+template <std::integral V>
+json::operator V() const {
+  return std::get<integer_type>(this->item).get();
+}
+template <std::floating_point V>
+json::operator V() const {
+  return std::get<floating_type>(this->item).get();
+}
 
-template<std::integral V>
-json::operator V() const { return std::get<integer_type>(this->item).get(); }
-template<std::floating_point V>
-json::operator V() const { return std::get<floating_type>(this->item).get(); }
-
-template<typename U>
+template <typename U>
 json& json::emplace_back(U&& val) {
-  auto &arr = this->get_container_of<VALUE_ARR_TAG_IDX, true>();
+  auto& arr = this->get_container_of<VALUE_ARR_TAG_IDX, true>();
   return arr.emplace_back(std::forward<U>(val));
 }
 
-template<typename U>
+template <typename U>
 decltype(auto) json::emplace(std::basic_string_view<char_type> key, U&& val) {
-  auto &dict = this->get_container_of<VALUE_DICT_TAG_IDX, true>();
-  return dict.emplace(
-    key,
-    std::forward<U>(val)
-  );
+  auto& dict = this->get_container_of<VALUE_DICT_TAG_IDX, true>();
+  return dict.emplace(key, std::forward<U>(val));
 }
 
-template<typename T>
+template <typename T>
 bool json::holds() const noexcept {
   return std::holds_alternative<T>(this->item);
 }
 
-
-
-
-} // namespace lazy
+}  // namespace lazy
 
 #endif
-

@@ -46,8 +46,11 @@ constexpr std::size_t find_escape_char(std::string_view tag) noexcept {
   return i;
 }
 
-constexpr std::tuple<std::string, std::size_t, std::errc> unescape_string(std::string_view escaped, std::size_t from = 0) {
-  auto unescape_string_impl = [](char* data, std::size_t len, std::size_t from) noexcept -> std::pair<std::size_t, std::errc> {
+constexpr std::tuple<std::string, std::size_t, std::errc> unescape_string(
+    std::string_view escaped, std::size_t from = 0) {
+  auto unescape_string_impl =
+      [](char* data, std::size_t len,
+         std::size_t from) noexcept -> std::pair<std::size_t, std::errc> {
     std::size_t read_pos{from};
     std::size_t write_pos{from};
     while (read_pos < len) {
@@ -61,14 +64,38 @@ constexpr std::tuple<std::string, std::size_t, std::errc> unescape_string(std::s
       }
       const char esc{data[read_pos++]};
       switch (esc) {
-        case '"': { data[write_pos++] = '\"'; break; }
-        case '\\':{ data[write_pos++] = '\\'; break; }
-        case '/': { data[write_pos++] = '/'; break; }
-        case 'b': { data[write_pos++] = '\b'; break; }
-        case 'f': { data[write_pos++] = '\f'; break; }
-        case 'n': { data[write_pos++] = '\n'; break; }
-        case 'r': { data[write_pos++] = '\r'; break; }
-        case 't': { data[write_pos++] = '\t'; break; }
+        case '"': {
+          data[write_pos++] = '\"';
+          break;
+        }
+        case '\\': {
+          data[write_pos++] = '\\';
+          break;
+        }
+        case '/': {
+          data[write_pos++] = '/';
+          break;
+        }
+        case 'b': {
+          data[write_pos++] = '\b';
+          break;
+        }
+        case 'f': {
+          data[write_pos++] = '\f';
+          break;
+        }
+        case 'n': {
+          data[write_pos++] = '\n';
+          break;
+        }
+        case 'r': {
+          data[write_pos++] = '\r';
+          break;
+        }
+        case 't': {
+          data[write_pos++] = '\t';
+          break;
+        }
         case 'u': {
           if (read_pos + 4 > len) {
             return {read_pos, std::errc::invalid_argument};
@@ -86,7 +113,8 @@ constexpr std::tuple<std::string, std::size_t, std::errc> unescape_string(std::s
           };
 
           uint32_t codepoint{parse_hexcode()};
-          if (codepoint == std::numeric_limits<uint32_t>::max() || (codepoint >= 0xDC00 && codepoint <= 0xDFFF)) {
+          if (codepoint == std::numeric_limits<uint32_t>::max() ||
+              (codepoint >= 0xDC00 && codepoint <= 0xDFFF)) {
             return {read_pos, std::errc::invalid_argument};
           } else if (codepoint >= 0xD800 && codepoint <= 0xDBFF) {
             // Handle UTF-16 surrogate pairs (\uD83D\uDE00 -> 😀)
@@ -119,19 +147,43 @@ constexpr std::tuple<std::string, std::size_t, std::errc> unescape_string(std::s
 
 constexpr std::string escape_string(std::string_view unescaped) {
   std::string escaped{};
-  escaped.reserve(unescaped.size()*3/2);
+  escaped.reserve(unescaped.size() * 3 / 2);
 
   const std::size_t sz{unescaped.size()};
   for (auto c : unescaped) {
     switch (c) {
-      case '\"': { escaped += "\\\""; break; }
-      case '\\': { escaped += "\\\\"; break; }
-      case '/':  { escaped += "\\/"; break; }
-      case '\b': { escaped += "\\b"; break; }
-      case '\f': { escaped += "\\f"; break; }
-      case '\n': { escaped += "\\n"; break; }
-      case '\r': { escaped += "\\r"; break; }
-      case '\t': { escaped += "\\t"; break; }
+      case '\"': {
+        escaped += "\\\"";
+        break;
+      }
+      case '\\': {
+        escaped += "\\\\";
+        break;
+      }
+      case '/': {
+        escaped += "\\/";
+        break;
+      }
+      case '\b': {
+        escaped += "\\b";
+        break;
+      }
+      case '\f': {
+        escaped += "\\f";
+        break;
+      }
+      case '\n': {
+        escaped += "\\n";
+        break;
+      }
+      case '\r': {
+        escaped += "\\r";
+        break;
+      }
+      case '\t': {
+        escaped += "\\t";
+        break;
+      }
       default: {
         if (static_cast<unsigned char>(c) < 0x20) {
           char hex_char[8];
@@ -148,9 +200,8 @@ constexpr std::string escape_string(std::string_view unescaped) {
   return escaped;
 }
 
+}  // namespace utils
 
-} // utils
-
-} // namespace lazy
+}  // namespace lazy
 
 #endif

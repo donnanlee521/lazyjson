@@ -2,18 +2,18 @@
 
 #include "lazy/lazyjson.hpp"
 
-#include <string>
 #include <fstream>
+#include <string>
 
 namespace lazy {
 
-
-// 
-// 
+//
+//
 // json class defs
 
-json::char_const_pointer_type json::fastforward_view(char_const_pointer_type b, char_const_pointer_type e) noexcept {
-  for(;b < e; ++b) {
+json::char_const_pointer_type json::fastforward_view(
+    char_const_pointer_type b, char_const_pointer_type e) noexcept {
+  for (; b < e; ++b) {
     if (!std::isspace(*b)) {
       break;
     }
@@ -120,6 +120,8 @@ json::tag_return_type json::tag_json_map(tag_dict_type& dict,
     return {++b, terr};
   }
 
+  // dict.reserve(4);
+
   while (b < e) {
     // parse key section
     if (*b != '"') {
@@ -146,7 +148,7 @@ json::tag_return_type json::tag_json_map(tag_dict_type& dict,
     ++b;
 
     // parse value section
-    auto [iter, is_emplaced] = dict.emplace(std::move(k), json{});
+    auto [iter, is_emplaced] = dict.emplace(std::move(k));
     if (!is_emplaced) {
       terr = json_tag_err::dict_key_duplicate;
       break;
@@ -272,18 +274,30 @@ json_array& json::get_array() {
 };
 
 json& json::operator[](std::size_t idx) { return this->get_array().at(idx); }
-json const& json::operator[](std::size_t idx) const { return this->get_array().at(idx); }
-json& json::operator[](std::basic_string_view<char_type> key) { return this->get_dict().at(key); }
-json const& json::operator[](std::basic_string_view<char_type> key) const { return this->get_dict().at(key); }
+json const& json::operator[](std::size_t idx) const {
+  return this->get_array().at(idx);
+}
+json& json::operator[](std::basic_string_view<char_type> key) {
+  return this->get_dict().at(key);
+}
+json const& json::operator[](std::basic_string_view<char_type> key) const {
+  return this->get_dict().at(key);
+}
 
 json::operator bool() const { return std::get<boolean_type>(this->item).get(); }
 
 json& json::at(std::size_t idx) { return this->get_array().at(idx); }
-json const& json::at(std::size_t idx) const { return this->get_array().at(idx); }
+json const& json::at(std::size_t idx) const {
+  return this->get_array().at(idx);
+}
 json& json::at(std::string_view key) { return this->get_dict().at(key); }
-json const& json::at(std::string_view key) const { return this->get_dict().at(key); }
+json const& json::at(std::string_view key) const {
+  return this->get_dict().at(key);
+}
 
-json::operator std::string_view() const { return std::get<string_type>(this->item).get(); }
+json::operator std::string_view() const {
+  return std::get<string_type>(this->item).get();
+}
 
 std::size_t json::index() const noexcept { return this->item.index(); }
 
@@ -321,7 +335,6 @@ std::vector<std::string_view> json::keys() const {
   return rkey;
 }
 
-
 json json::from_string_view(std::string_view sv, std::size_t* ends) {
   json lz{};
   auto b = sv.begin();
@@ -329,19 +342,21 @@ json json::from_string_view(std::string_view sv, std::size_t* ends) {
 
   const auto len{c - b};
   if (er != json_tag_err::success) {
-    auto make_err_str = [&](int window_size=10) -> std::string {
+    auto make_err_str = [&](int window_size = 10) -> std::string {
       std::size_t err_stt_idx = std::max(len - window_size, 0l);
-      auto err_part = sv.substr(err_stt_idx, window_size*2);
+      auto err_part = sv.substr(err_stt_idx, window_size * 2);
 
-      auto err_header = std::format("json decode error: failed in pos {:d}/{:d} ({:s}), ",
-        len, sv.size(), json_tag_err_to_string(er));
+      auto err_header =
+          std::format("json decode error: failed in pos {:d}/{:d} ({:s}), ",
+                      len, sv.size(), json_tag_err_to_string(er));
       auto err_body = std::format("...\"{}\"...\n", err_part);
-      auto err_tail = std::string(err_header.size() + 3, ' ') + std::string(err_part.size()+2, '^');
+      auto err_tail = std::string(err_header.size() + 3, ' ') +
+                      std::string(err_part.size() + 2, '^');
 
       return err_header + err_body + err_tail;
     };
 
-    throw std::invalid_argument{ make_err_str(10) };
+    throw std::invalid_argument{make_err_str(10)};
   }
 
   if (ends) {
@@ -350,18 +365,19 @@ json json::from_string_view(std::string_view sv, std::size_t* ends) {
   return lz;
 }
 
-// 
-// 
+//
+//
 // json_contaienr class defs
 
 json& json_container::get() noexcept { return this->root; }
 const json& json_container::get() const noexcept { return this->root; }
-json_container::operator bool() const noexcept {return !this->src->empty(); }
+json_container::operator bool() const noexcept { return !this->src->empty(); }
 
-json_container json_container::from_file(std::string_view filepath)  {
-  std::ifstream f{ std::string{ filepath } };
+json_container json_container::from_file(std::string_view filepath) {
+  std::ifstream f{std::string{filepath}};
   if (!f) {
-    throw std::invalid_argument{ std::format("file path({}) not exists", filepath) };
+    throw std::invalid_argument{
+        std::format("file path({}) not exists", filepath)};
   }
   json_container jc{};
   f >> jc;
@@ -406,8 +422,8 @@ std::ostream& operator<<(std::ostream& os, json_container const& self) {
   return os << self.root;
 }
 
-std::istream& operator>>(std::istream& is, json_container &self) {
-  char c{ '\0' };
+std::istream& operator>>(std::istream& is, json_container& self) {
+  char c{'\0'};
   if (!(is >> c)) {
     return is;
   }
@@ -422,11 +438,11 @@ std::istream& operator>>(std::istream& is, json_container &self) {
         ce = ']';
       }
       parsed = [&is, &c](char cb, char ce) -> std::string {
-        std::int16_t brace_count{ 1 };
-        std::string s{ cb };
+        std::int16_t brace_count{1};
+        std::string s{cb};
         bool str_stt{false};
 
-        while(brace_count > 0 && is.get(c)) {
+        while (brace_count > 0 && is.get(c)) {
           if (c == '\\') {
             s.push_back(c);
             if (!is.get(c)) {
@@ -448,11 +464,9 @@ std::istream& operator>>(std::istream& is, json_container &self) {
           s.push_back(c);
           if (c == '"') {
             str_stt = !str_stt;
-          }
-          else if (!str_stt && c == cb) {
+          } else if (!str_stt && c == cb) {
             ++brace_count;
-          }
-          else if (!str_stt && c == ce) {
+          } else if (!str_stt && c == ce) {
             --brace_count;
           }
         }
@@ -462,8 +476,8 @@ std::istream& operator>>(std::istream& is, json_container &self) {
     }
     case '"': {
       parsed = [&is, &c]() -> std::string {
-        std::string s{ c };
-        while(is.get(c)) {
+        std::string s{c};
+        while (is.get(c)) {
           if (c == '\\') {
             s.push_back(c);
             if (!is.get(c)) {
@@ -495,30 +509,24 @@ std::istream& operator>>(std::istream& is, json_container &self) {
   if (parsed.empty()) {
     return is;
   }
-  self = json_container{ std::move(parsed) };
+  self = json_container{std::move(parsed)};
 
   return is;
 };
 
-
-
-// 
-// 
+//
+//
 // helper functions
 
 std::string_view json_tag_err_to_string(json_tag_err val) noexcept {
-  constexpr static std::string_view strs[] = {
-    "success",
-    "invalid_eos",
-    "invalid_expression",
-    "invalid_json_key",
-    "invalid_string_escape_sequence",
-    "integer_parse_fail",
-    "dict_key_duplicate"
-  };
+  constexpr static std::string_view strs[] = {"success",
+                                              "invalid_eos",
+                                              "invalid_expression",
+                                              "invalid_json_key",
+                                              "invalid_string_escape_sequence",
+                                              "integer_parse_fail",
+                                              "dict_key_duplicate"};
   return strs[static_cast<int>(val)];
 }
-
-
 
 }  // namespace lazy

@@ -20,7 +20,7 @@ target_include_directories(${app_name} PUBLIC
     $<INSTALL_INTERFACE:include>
 )
 set_target_properties(${app_name} PROPERTIES
-    PUBLIC_HEADER "include/lazy/lazyjson.hpp;include/lazy/lazyjson_value.hpp;include/lazy/lazyjson_utils.hpp;include/lazy/lazyjson_impl.tpp;include/lazy/lazyjson_concept.hpp"
+    PUBLIC_HEADER "include/lazy/lazyjson.hpp;include/lazy/lazyjson_value.hpp;include/lazy/lazyjson_utils.hpp;include/lazy/lazyjson_impl.tpp;include/lazy/lazyjson_concept.hpp;include/lazy/lazyjson_containers.hpp"
 )
 
 install(TARGETS ${app_name}
