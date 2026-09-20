@@ -112,7 +112,7 @@ class json {
       value_type& tag, char_const_pointer_type beg,
       const char_const_pointer_type end) noexcept;
 
-  static tag_return_type tag_json_map(tag_dict_type& dict,
+  static tag_return_type tag_json_map(value_type& tag,
                                       char_const_pointer_type beg,
                                       const char_const_pointer_type end);
   static tag_return_type tag_json_array(tag_array_type& arr,

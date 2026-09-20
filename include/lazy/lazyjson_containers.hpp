@@ -64,6 +64,10 @@ class json_ordered_dict {
     std::ranges::sort(this->c_, {}, &value_type::first);
   }
 
+  explicit json_ordered_dict(container_type&& s) : c_{std::move(s)} {
+    std::ranges::sort(this->c_, {}, &value_type::first);
+  }
+
   template <string_view_convertible<char> U, typename... Args>
   std::pair<iterator_type, bool> emplace(U&& key, Args&&... args) {
     auto iter = this->lower_bound(key);

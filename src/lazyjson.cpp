@@ -107,7 +107,7 @@ json::tag_return_type json::tag_json_null(
   return {b + N, json_tag_err::success};
 }
 
-json::tag_return_type json::tag_json_map(tag_dict_type& dict,
+json::tag_return_type json::tag_json_map(value_type& dict,
                                          char_const_pointer_type b,
                                          const char_const_pointer_type e) {
   b = {self_type::fastforward_view(b, e)};
@@ -120,7 +120,8 @@ json::tag_return_type json::tag_json_map(tag_dict_type& dict,
     return {++b, terr};
   }
 
-  // dict.reserve(4);
+  std::vector<tag_dict_type::value_type> temp{};
+  temp.reserve(4);
 
   while (b < e) {
     // parse key section
@@ -130,8 +131,8 @@ json::tag_return_type json::tag_json_map(tag_dict_type& dict,
     }
     ++b;
 
-    json_key_type k;
-    std::tie(b, terr) = json::tag_json_key(k, b, e);
+    tag_dict_type::value_type& kv = temp.emplace_back();
+    std::tie(b, terr) = json::tag_json_key(kv.first, b, e);
     if (terr != json_tag_err{}) {
       break;
     }
@@ -148,13 +149,13 @@ json::tag_return_type json::tag_json_map(tag_dict_type& dict,
     ++b;
 
     // parse value section
-    auto [iter, is_emplaced] = dict.emplace(std::move(k));
-    if (!is_emplaced) {
-      terr = json_tag_err::dict_key_duplicate;
-      break;
-    }
+    // auto [iter, is_emplaced] = dict.emplace(std::move(k));
+    // if (!is_emplaced) {
+    //   terr = json_tag_err::dict_key_duplicate;
+    //   break;
+    // }
 
-    std::tie(b, terr) = json::tag_json(iter->second, b, e);
+    std::tie(b, terr) = json::tag_json(kv.second, b, e);
     if (terr != json_tag_err{}) {
       break;
     }
@@ -170,6 +171,7 @@ json::tag_return_type json::tag_json_map(tag_dict_type& dict,
     }
     b = self_type::fastforward_view(b, e);
   }
+  dict.emplace<tag_dict_type>(std::move(temp));
   return {b, terr};
 }
 
@@ -220,8 +222,7 @@ json::tag_return_type json::tag_json(json& json, char_const_pointer_type b,
   }
   switch (*b) {
     case '{': {
-      std::tie(b, terr) =
-          tag_json_map(json.item.emplace<tag_dict_type>(), ++b, e);
+      std::tie(b, terr) = tag_json_map(json.item, ++b, e);
       break;
     }
     case '[': {
