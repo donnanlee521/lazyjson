@@ -71,14 +71,14 @@ json::operator V() const {
 
 template <typename U>
 json& json::emplace_back(U&& val) {
-  auto& arr = this->get_container_of<tag_array_type, true>();
-  return arr.emplace_back(std::forward<U>(val));
+  return this->get_container_of<tag_array_type, true>().emplace_back(
+      std::forward<U>(val));
 }
 
 template <typename U>
 decltype(auto) json::emplace(std::basic_string_view<char_type> key, U&& val) {
-  auto& dict = this->get_container_of<tag_dict_type, true>();
-  return dict.emplace(key, std::forward<U>(val));
+  return this->get_container_of<tag_dict_type, true>().emplace(
+      key, std::forward<U>(val));
 }
 
 template <typename T>

@@ -14,14 +14,25 @@ file(GLOB srcs src/*.cpp)
 
 add_library(${app_name} SHARED ${srcs})
 
+set(public_headers
+)
+
+list(APPEND public_headers
+    "include/lazy/lazyjson.hpp"
+    "include/lazy/lazyjson.tpp"
+    "include/lazy/lazyjson_value.hpp"
+    "include/lazy/lazyjson_value.tpp"
+    "include/lazy/lazyjson_utils.hpp"
+    "include/lazy/lazyjson_concept.hpp"
+    "include/lazy/lazyjson_containers.hpp")
+
 target_compile_options(${app_name} PUBLIC -O2;-Wnrvo)
 target_include_directories(${app_name} PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
     $<INSTALL_INTERFACE:include>
 )
 set_target_properties(${app_name} PROPERTIES
-    PUBLIC_HEADER "include/lazy/lazyjson.hpp;include/lazy/lazyjson_value.hpp;include/lazy/lazyjson_utils.hpp;include/lazy/lazyjson_impl.tpp;include/lazy/lazyjson_concept.hpp;include/lazy/lazyjson_containers.hpp"
-)
+    PUBLIC_HEADER "${public_headers}")
 
 install(TARGETS ${app_name}
     ARCHIVE DESTINATION lib

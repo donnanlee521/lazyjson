@@ -54,8 +54,8 @@ class json {
   using null_type = json_null;
   using boolean_type = json_boolean;
   using string_type = json_string;
-  using integer_type = json_integer<int64_t, char_type>;
-  using floating_type = json_float<double, char_type>;
+  using integer_type = json_integer<int64_t>;
+  using floating_type = json_float<double>;
 
   using integer_tag_type = integer_type::tag_type;
   using floating_point_tag_type = floating_type::tag_type;
@@ -267,5 +267,5 @@ std::ostream& operator<<(std::ostream& os, json_formatter<J> const& val) {
 
 }  // namespace lazy
 
-#include "lazyjson_impl.tpp"
+#include "lazyjson.tpp"
 #endif
