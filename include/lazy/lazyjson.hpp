@@ -133,7 +133,7 @@ class json {
   operator V() const;
   operator bool() const;
   operator std::string_view() const;
-  operator std::nullptr_t() const;
+  explicit operator std::nullptr_t() const;
 
   json_array& get_array();
   json_array const& get_array() const;
