@@ -2,13 +2,12 @@
 #define LAZYJSON_CONTAINERS_HPP
 
 #include <algorithm>
-#include <compare>
+#include <cstddef>
 #include <format>
 #include <functional>
 #include <initializer_list>
 #include <ranges>
 #include <stdexcept>
-#include <string>
 #include <string_view>
 #include <tuple>
 #include <utility>
@@ -18,18 +17,20 @@
 
 namespace lazy {
 
-template <typename KT, typename VT, typename C = std::vector<std::pair<KT, VT>>>
+template <typename KT, typename VT>
   requires(string_view_convertible<KT, char>)
 class json_ordered_dict {
  public:
   using key_type = KT;
   using mapped_type = VT;
   using value_type = std::pair<key_type, mapped_type>;
-  using iterator_type = typename C::iterator;
-  using const_iterator_type = typename C::const_iterator;
+  using container_type = std::vector<value_type>;
+  using size_type = typename container_type::size_type;
+  using iterator_type = typename container_type::iterator;
+  using const_iterator_type = typename container_type::const_iterator;
 
  private:
-  C c_;
+  container_type c_;
 
   iterator_type lower_bound(std::string_view key) {
     return std::ranges::lower_bound(
@@ -84,7 +85,8 @@ class json_ordered_dict {
     return this->get_val(key);
   };
 
-  std::size_t size() const noexcept { return this->c_.size(); }
+  size_type size() const noexcept { return this->c_.size(); }
+  void reserve(size_type n) { this->c_.reserve(n); }
 
   iterator_type begin() noexcept { return this->c_.begin(); }
   iterator_type end() noexcept { return this->c_.end(); }

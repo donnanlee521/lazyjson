@@ -474,7 +474,6 @@ class json_key : public json_string_base<json_key> {
         [](const auto& visited) noexcept -> value_type { return visited; },
         this->item);
   }
-  value_type to_string_view() const noexcept { return this->get(); }
   operator value_type() const noexcept { return this->get(); }
 
   std::size_t index() const noexcept { return this->item.index(); }
@@ -585,7 +584,6 @@ class json_string : public json_string_base<json_string> {
     return std::get<json_string::parsed_idx>(this->item);
   }
 
-  value_type to_string_view() const { return this->get(); }
   operator value_type() const { return this->get(); }
 
   std::size_t index() const noexcept { return this->item.index(); }
