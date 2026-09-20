@@ -283,8 +283,6 @@ json const& json::operator[](std::basic_string_view<char_type> key) const {
   return this->get_dict().at(key);
 }
 
-json::operator bool() const { return std::get<boolean_type>(this->item).get(); }
-
 json& json::at(std::size_t idx) { return this->get_array().at(idx); }
 json const& json::at(std::size_t idx) const {
   return this->get_array().at(idx);
@@ -294,8 +292,14 @@ json const& json::at(std::string_view key) const {
   return this->get_dict().at(key);
 }
 
+json::operator bool() const { return std::get<boolean_type>(this->item).get(); }
+
 json::operator std::string_view() const {
   return std::get<string_type>(this->item).get();
+}
+
+json::operator std::nullptr_t() const {
+  return std::get<null_type>(this->item).get();
 }
 
 std::size_t json::index() const noexcept { return this->item.index(); }

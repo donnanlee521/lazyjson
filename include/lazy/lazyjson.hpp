@@ -131,8 +131,9 @@ class json {
   operator V() const;
   template <std::floating_point V>
   operator V() const;
-  operator std::string_view() const;
   operator bool() const;
+  operator std::string_view() const;
+  operator std::nullptr_t() const;
 
   json_array& get_array();
   json_array const& get_array() const;
