@@ -262,17 +262,15 @@ json::json(tag_dict_type&& dict) noexcept
     : item{std::in_place_type<tag_dict_type>, std::move(dict)} {}
 
 json_array const& json::get_array() const {
-  return this->get_container_of<VALUE_ARR_TAG_IDX>();
+  return this->get_container_of<tag_array_type>();
 };
 json_dict const& json::get_dict() const {
-  return this->get_container_of<VALUE_DICT_TAG_IDX>();
-};
-json_dict& json::get_dict() {
-  return this->get_container_of<VALUE_DICT_TAG_IDX>();
+  return this->get_container_of<tag_dict_type>();
 };
 json_array& json::get_array() {
-  return this->get_container_of<VALUE_ARR_TAG_IDX>();
+  return this->get_container_of<tag_array_type>();
 };
+json_dict& json::get_dict() { return this->get_container_of<tag_dict_type>(); };
 
 json& json::operator[](std::size_t idx) { return this->get_array().at(idx); }
 json const& json::operator[](std::size_t idx) const {
@@ -326,11 +324,11 @@ const json& json::parse_all() const {
 }
 
 std::vector<std::string_view> json::keys() const {
-  auto const& dict = this->get_container_of<VALUE_DICT_TAG_IDX>();
+  auto const& dict = this->get_container_of<tag_dict_type>();
 
   std::vector<std::string_view> rkey{};
   rkey.reserve(dict.size());
-  for (auto const& [k, v] : this->get_container_of<VALUE_DICT_TAG_IDX>()) {
+  for (auto const& [k, v] : dict) {
     rkey.emplace_back(k);
   }
   return rkey;

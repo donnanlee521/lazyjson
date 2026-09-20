@@ -18,21 +18,19 @@ bool json::compare_ref_string(char_const_pointer_type b,
   }(std::make_index_sequence<N0>{});
 };
 
-template <std::size_t I, bool GenIfNull, typename R>
-  requires(json::VALUE_ARR_TAG_IDX <= I && I <= json::VALUE_DICT_TAG_IDX)
-R& json::get_container_of() {
+template <typename U, bool GenIfNull>
+U& json::get_container_of() {
   if constexpr (GenIfNull) {
     if (std::holds_alternative<null_type>(this->item)) {
-      return this->item.emplace<R>();
+      return this->item.emplace<U>();
     }
   }
-  return std::get<I>(this->item);
+  return std::get<U>(this->item);
 }
 
-template <std::size_t I, typename R>
-  requires(json::VALUE_ARR_TAG_IDX <= I && I <= json::VALUE_DICT_TAG_IDX)
-R const& json::get_container_of() const {
-  return std::get<I>(this->item);
+template <typename U>
+U const& json::get_container_of() const {
+  return std::get<U>(this->item);
 }
 
 template <bool V>
@@ -73,13 +71,13 @@ json::operator V() const {
 
 template <typename U>
 json& json::emplace_back(U&& val) {
-  auto& arr = this->get_container_of<VALUE_ARR_TAG_IDX, true>();
+  auto& arr = this->get_container_of<tag_array_type, true>();
   return arr.emplace_back(std::forward<U>(val));
 }
 
 template <typename U>
 decltype(auto) json::emplace(std::basic_string_view<char_type> key, U&& val) {
-  auto& dict = this->get_container_of<VALUE_DICT_TAG_IDX, true>();
+  auto& dict = this->get_container_of<tag_dict_type, true>();
   return dict.emplace(key, std::forward<U>(val));
 }
 

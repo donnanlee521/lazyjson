@@ -9,7 +9,6 @@
 #include <functional>
 #include <iostream>
 #include <istream>
-#include <map>
 #include <memory>
 #include <ostream>
 #include <string_view>
@@ -43,7 +42,6 @@ class json_formatter;
 using json_key_type = json_key;
 using json_array = std::vector<json>;
 using json_dict = json_ordered_dict<json_key_type, json>;
-// using json_dict = std::map<json_key_type, json>;
 
 class json {
   using self_type = json;
@@ -65,10 +63,9 @@ class json {
   using tag_array_type = json_array;
   using tag_dict_type = json_dict;
 
-  using value_type = std::variant<null_type, boolean_type, string_type,
-                                  integer_type, floating_type,
-                                  // container types
-                                  tag_array_type, tag_dict_type>;
+  using value_type =
+      std::variant<null_type, boolean_type, string_type, integer_type,
+                   floating_type, tag_array_type, tag_dict_type>;
 
   constexpr static std::size_t VALUE_ARR_TAG_IDX{5};
   constexpr static std::size_t VALUE_DICT_TAG_IDX{6};
@@ -83,14 +80,10 @@ class json {
                                  char_const_pointer_type e,
                                  const char (&cmp)[N]) noexcept;
 
-  template <std::size_t I, bool GenIfNull = false,
-            typename R = std::variant_alternative_t<I, value_type>>
-    requires(VALUE_ARR_TAG_IDX <= I && I <= VALUE_DICT_TAG_IDX)
-  R& get_container_of();
-  template <std::size_t I,
-            typename R = std::variant_alternative_t<I, value_type>>
-    requires(VALUE_ARR_TAG_IDX <= I && I <= VALUE_DICT_TAG_IDX)
-  R const& get_container_of() const;
+  template <typename U, bool GenIfNull = false>
+  U& get_container_of();
+  template <typename U>
+  U const& get_container_of() const;
 
   using tag_return_type = std::pair<char_const_pointer_type, json_tag_err>;
 
