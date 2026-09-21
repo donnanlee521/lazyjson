@@ -173,6 +173,24 @@ class json {
                                   json_formatter<J> const& val);
 };
 
+template <std::size_t I = 4>
+class json_formatter {
+  std::reference_wrapper<const json> ref_;
+  std::uint32_t lvl_;
+
+  static consteval std::array<char, I> make_indent() noexcept;
+  static std::ostream& write_indent(std::ostream& os, std::size_t lvl);
+
+  constexpr static std::array<char, I> indent{make_indent()};
+
+ public:
+  json_formatter(json const& ref, std::uint32_t lvl = 0) noexcept;
+
+  template <std::size_t J>
+  friend std::ostream& operator<<(std::ostream& os,
+                                  json_formatter<J> const& val);
+};
+
 /// @brief json wrapper class for safe string lifetime garantee
 class json_container {
   using self_type = json_container;
@@ -199,72 +217,6 @@ class json_container {
   friend std::ostream& operator<<(std::ostream& os, json_container const& self);
   friend std::istream& operator>>(std::istream& is, json_container& self);
 };
-
-template <std::size_t I = 4>
-class json_formatter {
-  std::reference_wrapper<const json> ref_;
-  std::uint32_t lvl_;
-
-  consteval static std::array<char, I> make_indent() noexcept {
-    std::array<char, I> indent;
-    indent.fill(' ');
-    return indent;
-  }
-
-  constexpr static std::array<char, I> indent{make_indent()};
-
-  static std::ostream& write_indent(std::ostream& os, std::size_t lvl) {
-    for (std::size_t i{}; i < lvl; ++i) {
-      os.write(indent.data(), I);
-    }
-    return os;
-  }
-
- public:
-  json_formatter(json const& ref, std::uint32_t lvl = 0) noexcept
-      : ref_{ref}, lvl_{lvl} {}
-
-  template <std::size_t J>
-  friend std::ostream& operator<<(std::ostream& os,
-                                  json_formatter<J> const& val);
-};
-
-template <std::size_t J>
-std::ostream& operator<<(std::ostream& os, json_formatter<J> const& val) {
-  std::visit(
-      [&os, &val](auto&& p) {
-        using T = std::decay_t<decltype(p)>;
-        if constexpr (std::same_as<T, typename json::tag_array_type>) {
-          std::size_t i{};
-          const std::size_t e{p.size()};
-          val.write_indent(os << "[\n", val.lvl_ + 1);
-          for (auto const& v : p) {
-            os << json_formatter<J>{v, val.lvl_ + 1};
-            if (++i < e) {
-              val.write_indent(os << ",\n", val.lvl_ + 1);
-            }
-          }
-          val.write_indent(os << '\n', val.lvl_) << ']';
-          // val.write_indent(os, val.lvl_);
-        } else if constexpr (std::same_as<T, typename json::tag_dict_type>) {
-          std::size_t i{};
-          const std::size_t e{p.size()};
-
-          val.write_indent(os << "{\n", val.lvl_ + 1);
-          for (auto const& [k, v] : p) {
-            os << k << " : " << json_formatter<J>{v, val.lvl_ + 1};
-            if (++i < e) {
-              val.write_indent(os << ",\n", val.lvl_ + 1);
-            }
-          }
-          val.write_indent(os << '\n', val.lvl_) << '}';
-        } else {
-          os << p;
-        }
-      },
-      val.ref_.get().item);
-  return os;
-}
 
 }  // namespace lazy
 

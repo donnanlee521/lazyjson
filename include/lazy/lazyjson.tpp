@@ -86,6 +86,65 @@ bool json::holds() const noexcept {
   return std::holds_alternative<T>(this->item);
 }
 
+// json formatter defs
+
+template <std::size_t I>
+consteval std::array<char, I> json_formatter<I>::make_indent() noexcept {
+  std::array<char, I> indent;
+  indent.fill(' ');
+  return indent;
+}
+
+template <std::size_t I>
+std::ostream& json_formatter<I>::write_indent(std::ostream& os,
+                                              std::size_t lvl) {
+  for (std::size_t i{}; i < lvl; ++i) {
+    os.write(indent.data(), I);
+  }
+  return os;
+}
+
+template <std::size_t I>
+json_formatter<I>::json_formatter(json const& ref, std::uint32_t lvl) noexcept
+    : ref_{ref}, lvl_{lvl} {}
+
+template <std::size_t J>
+std::ostream& operator<<(std::ostream& os, json_formatter<J> const& val) {
+  std::visit(
+      [&os, &val](auto&& p) {
+        using T = std::decay_t<decltype(p)>;
+        if constexpr (std::same_as<T, typename json::tag_array_type>) {
+          std::size_t i{};
+          const std::size_t e{p.size()};
+          val.write_indent(os << "[\n", val.lvl_ + 1);
+          for (auto const& v : p) {
+            os << json_formatter<J>{v, val.lvl_ + 1};
+            if (++i < e) {
+              val.write_indent(os << ",\n", val.lvl_ + 1);
+            }
+          }
+          val.write_indent(os << '\n', val.lvl_) << ']';
+          // val.write_indent(os, val.lvl_);
+        } else if constexpr (std::same_as<T, typename json::tag_dict_type>) {
+          std::size_t i{};
+          const std::size_t e{p.size()};
+
+          val.write_indent(os << "{\n", val.lvl_ + 1);
+          for (auto const& [k, v] : p) {
+            os << k << " : " << json_formatter<J>{v, val.lvl_ + 1};
+            if (++i < e) {
+              val.write_indent(os << ",\n", val.lvl_ + 1);
+            }
+          }
+          val.write_indent(os << '\n', val.lvl_) << '}';
+        } else {
+          os << p;
+        }
+      },
+      val.ref_.get().item);
+  return os;
+}
+
 }  // namespace lazy
 
 #endif
