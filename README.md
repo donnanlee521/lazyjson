@@ -1,6 +1,6 @@
 ### lazyjson
 
-This JSON parser fully utilizes C++20 STL libraries, postpones parsing value at actual using time of a value, reduces unnecessary parsing cost as possible as it is.
+This JSON parser fully utilizes C++20 STL libraries, postpones value parsing until the values are actually used, reduces unnecessary parsing cost as much as possible.
 
 This library adopted 'std::vector' for both JSON arrays and JSON dictionaries as a primary container, and no additional memory allocation happens except for the containers do.
 
@@ -51,7 +51,7 @@ int64_t total_records = jval["meta"sv]["total_records"sv]; // == 2
 double height = jval["data"sv][0]["dimensions"sv]["height"sv] // == 30.523
 
 // for parsing null type..., json_null type is corresponding to c++ nullptr_t in this lib, and should explicitly cast except other json types(int, float, string, boolean...)
-std::nullptr_t static_cast<std::nullptr_t>(jval["etc"sv]);
+std::nullptr_t etc = static_cast<std::nullptr_t>(jval["etc"sv]); // == nullptr
 
 "
 ```
