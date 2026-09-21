@@ -2,9 +2,9 @@
 
 This JSON parser fully utilizes C++20 STL libraries, postpones parsing value at actual using time of a value, reduces unnecessary parsing cost as possible as it is.
 
-And this library exploits 'std::vector' container for both JSON array type and JSON dictionary type, and no memory allocation happens except for the container do,
+This library adopted 'std::vector' for both JSON arrays and JSON dictionaries as a primary container, and no additional memory allocation happens except for the containers do.
 
-consequently the parsed JSON memory layout has very compact scheme, which is highly cache friendly and memory effiecieny in real time environment.
+Hence, the memory layout of the parsed JSON becomes highly compact, which is extremely cache friendly and memory efficient in real time environment.
 
 ##### basic usage
 ```cpp
