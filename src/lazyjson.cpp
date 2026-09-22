@@ -113,65 +113,63 @@ json::tag_return_type json::tag_json_map(value_type& dict,
   b = {self_type::fastforward_view(b, e)};
   json_tag_err terr{};
 
+  std::vector<tag_dict_type::value_type> temp{};
+
   if (b == e) {
-    return {b, json_tag_err::invalid_eos};
+    terr = json_tag_err::invalid_eos;
+    goto err_out_of_loop;
   }
   if (*b == '}') {
-    return {++b, terr};
+    ++b;
+    goto out_of_dict_parse_loop;
   }
 
-  std::vector<tag_dict_type::value_type> temp{};
   temp.reserve(4);
-
-  while (b < e) {
+  do {
     // parse key section
     if (*b != '"') {
       terr = json_tag_err::invalid_json_key;
-      break;
+      goto err_out_of_loop;
     }
     ++b;
 
     tag_dict_type::value_type& kv = temp.emplace_back();
     std::tie(b, terr) = json::tag_json_key(kv.first, b, e);
     if (terr != json_tag_err{}) {
-      break;
+      goto err_out_of_loop;
     }
 
     b = self_type::fastforward_view(b, e);
     if (b == e) {
       terr = json_tag_err::invalid_eos;
-      break;
+      goto err_out_of_loop;
     }
     if (*b != ':') {
       terr = json_tag_err::invalid_expression;
-      break;
+      goto err_out_of_loop;
     }
     ++b;
 
-    // parse value section
-    // auto [iter, is_emplaced] = dict.emplace(std::move(k));
-    // if (!is_emplaced) {
-    //   terr = json_tag_err::dict_key_duplicate;
-    //   break;
-    // }
-
     std::tie(b, terr) = json::tag_json(kv.second, b, e);
     if (terr != json_tag_err{}) {
-      break;
+      goto err_out_of_loop;
     }
     b = self_type::fastforward_view(b, e);
     if (*b == ',') {
       ++b;
     } else if (*b == '}') {
       ++b;
-      break;
+      goto out_of_dict_parse_loop;
     } else {
       terr = json_tag_err::invalid_expression;
-      break;
+      goto err_out_of_loop;
     }
     b = self_type::fastforward_view(b, e);
-  }
+  } while (b < e);
+  return {b, json_tag_err::invalid_eos};
+out_of_dict_parse_loop:
   dict.emplace<tag_dict_type>(std::move(temp));
+err_out_of_loop:
   return {b, terr};
 }
 
@@ -189,7 +187,7 @@ json::tag_return_type json::tag_json_array(tag_array_type& arr,
     return {++b, terr};
   }
 
-  while (b < e) {
+  do {
     std::tie(b, terr) = tag_json(arr.emplace_back(), b, e);
     if (terr != json_tag_err{}) {
       goto out_of_array_parser;
@@ -206,7 +204,7 @@ json::tag_return_type json::tag_json_array(tag_array_type& arr,
       ++b;
       goto out_of_array_parser;
     }
-  }
+  } while (b < e);
   return {b, json_tag_err::invalid_eos};
 out_of_array_parser:
   return {b, terr};

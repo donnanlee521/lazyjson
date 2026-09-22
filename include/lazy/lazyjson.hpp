@@ -173,6 +173,9 @@ class json {
                                   json_formatter<J> const& val);
 };
 
+static_assert(std::is_nothrow_move_constructible_v<json>);
+static_assert(std::is_nothrow_move_assignable_v<json>);
+
 template <std::size_t I = 4>
 class json_formatter {
   std::reference_wrapper<const json> ref_;
