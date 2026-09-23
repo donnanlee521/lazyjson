@@ -3,7 +3,7 @@
 #define LAZYJSON_VALUE_TPP
 
 #include <charconv>
-// #include <memory>
+#include <memory>
 
 #include "lazyjson_value.hpp"
 
@@ -24,7 +24,7 @@ constexpr json_integer_tag::json_integer_tag(char_type const* number_stt_ptr,
                                              bool is_neg) noexcept
     : super_type{number_stt_ptr, size}, is_neg_{is_neg} {}
 
-constexpr std::string json_integer_tag::to_string() const {
+std::string json_integer_tag::to_string() const {
   std::string ret(this->size_ + this->is_neg_, '\0');
   auto beg = ret.begin();
   if (this->is_neg_) {

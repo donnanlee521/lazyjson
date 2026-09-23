@@ -87,7 +87,7 @@ struct json_integer_tag : public json_tag_base<char> {
   constexpr json_integer_tag(char_type const* number_stt_ptr, size_type size,
                              bool is_neg) noexcept;
 
-  constexpr std::string to_string() const;
+  inline std::string to_string() const;
   static constexpr std::pair<self_type, char_type const*> tag(
       char_type const* b, char_type const* e) noexcept;
   template <std::integral V>
