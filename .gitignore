@@ -7,3 +7,4 @@ tests/
 testsets/
 
 custom_configure.sh
+compile_commands.json
