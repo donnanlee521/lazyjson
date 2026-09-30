@@ -142,7 +142,6 @@ class json_ordered_dict {
 
   size_type size() const noexcept { return this->k_.size(); }
   void reserve(size_type n) {
-    __cplusplus;
     this->k_.reserve(n);
     this->v_.reserve(n);
   }
