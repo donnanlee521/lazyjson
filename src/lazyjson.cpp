@@ -42,7 +42,12 @@ json::tag_return_type json::tag_json_key(
   }
   return {b, json_tag_err::invalid_eos};
 true_return:
-  tag = json_key{std::string_view{_b, static_cast<std::size_t>(b - _b)}};
+  auto roi = std::string_view{_b, static_cast<std::size_t>(b - _b)};
+  if (esc_found) {
+    tag = json_key{std::in_place_index<false>, roi};
+  } else {
+    tag = json_key{std::in_place_index<true>, roi};
+  }
   return {++b, json_tag_err::success};
 }
 

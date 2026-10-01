@@ -242,7 +242,7 @@ std::ostream& operator<<(std::ostream& os, json_float<FloatU> const& obj) {
 }
 
 template <class T>
-constexpr std::tuple<std::string, std::size_t, std::errc>
+std::tuple<std::string, std::size_t, std::errc>
 json_string_base<T>::unescape_if(std::string_view s) {
   const auto esc_loc = lazy::utils::find_escape_char(s);
   if (esc_loc == s.size()) {
@@ -250,12 +250,6 @@ json_string_base<T>::unescape_if(std::string_view s) {
     return {{}, esc_loc, std::errc{}};
   }
   return lazy::utils::unescape_string(s, esc_loc);
-}
-
-template <class T>
-constexpr std::tuple<std::string, std::size_t, std::errc>
-json_string_base<T>::unescape(std::string_view s) {
-  return lazy::utils::unescape_string(s);
 }
 
 template <std::size_t I, typename... Args>

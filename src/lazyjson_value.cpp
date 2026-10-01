@@ -31,27 +31,6 @@ std::ostream& operator<<(std::ostream& os, json_boolean obj) {
   return os << static_cast<std::string_view>(obj);
 }
 
-void json_key::init_key(std::string_view view) {
-  auto [unescaped, sz, er] = super_type::unescape_if(view);
-  if (er != std::errc{}) {
-    throw std::invalid_argument{"invalid escaped string"};
-  }
-
-  if (unescaped.empty()) {
-    this->data_.cptr_ = view.data();
-    this->size_ = view.size();
-    this->is_view_ = true;
-  } else {
-    auto new_str =
-        std::allocator_traits<allocator_type>::allocate(allocator_, sz + 1);
-    *std::uninitialized_copy_n(unescaped.data(), sz, new_str) = '\0';
-
-    this->data_.cptr_ = new_str;
-    this->size_ = sz;
-    this->is_view_ = false;
-  }
-}
-
 json_key::char_type* json_key::copy_string(const char_type* src,
                                            size_type src_len) {
   char_type* dst =
@@ -65,12 +44,10 @@ void json_key::destroy_string(allocator_type& alloc, char_type* p,
   std::allocator_traits<allocator_type>::deallocate(alloc, p, len + 1);
 }
 
-json_key::json_key(std::string_view sv) { self_type::init_key(sv); }
-
-json_key::json_key(const char_type* c) {
-  assert(c != nullptr);
-  self_type::init_key(c);
-}
+json_key::json_key(std::string_view sv)
+    : data_{copy_string(sv.data(), sv.size())},
+      size_{static_cast<size_type>(sv.size())},
+      is_view_{false} {}
 
 json_key::json_key(self_type const& other)
     : data_{.cptr_ = other.is_view_
@@ -106,13 +83,13 @@ json_key::~json_key() noexcept {
   }
 }
 
-json_key::value_type json_key::get() const noexcept {
-  return value_type{this->data_.cptr_, this->size_};
+std::string_view json_key::get() const noexcept {
+  return {this->data_.cptr_, this->size_};
 }
 
 std::size_t json_key::size() const noexcept { return this->size_; }
 
-json_key::operator value_type() const noexcept { return this->get(); }
+json_key::operator std::string_view() const noexcept { return this->get(); }
 
 std::ostream& operator<<(std::ostream& os, json_key const& obj) {
   os << '"';
@@ -145,8 +122,8 @@ bool operator==(json_key const& a, std::string_view b) noexcept {
 
 std::errc json_string::convert() const {
   if (this->item.index() == json_string::esc_inc_tag_idx) {
-    auto&& [unescaped, _, er] =
-        this->unescape(std::get<json_string::esc_inc_tag_idx>(this->item));
+    auto&& [unescaped, _, er] = lazy::utils::unescape_string(
+        std::get<json_string::esc_inc_tag_idx>(this->item));
     if (er != std::errc{}) {
       return er;
     }

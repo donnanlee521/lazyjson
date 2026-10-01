@@ -46,6 +46,11 @@ constexpr std::size_t find_escape_char(std::string_view tag) noexcept {
   return i;
 }
 
+/// @brief unescape string
+/// @param escaped escaped string
+/// @param from position to start unescape [default: 0]
+/// @return 0: unescaped string; 1: size of unescaped string or err position; 2:
+/// err status
 constexpr std::tuple<std::string, std::size_t, std::errc> unescape_string(
     std::string_view escaped, std::size_t from = 0) {
   auto unescape_string_impl =

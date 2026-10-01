@@ -10,6 +10,7 @@
 #include <iostream>
 #include <limits>
 #include <memory>
+#include <stdexcept>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -247,45 +248,46 @@ static_assert(lazyjson_lazy_type_protocol<json_float<float>>);
 template <class T>
 struct json_string_base : public json_primitive<T> {
  protected:
-  static constexpr std::tuple<std::string, std::size_t, std::errc> unescape_if(
-      std::string_view s);
-  static constexpr std::tuple<std::string, std::size_t, std::errc> unescape(
+  static std::tuple<std::string, std::size_t, std::errc> unescape_if(
       std::string_view s);
 };
 
 class json_key : public json_string_base<json_key> {
  public:
   using char_type = char;
-  using allocator_type = std::allocator<char_type>;
-  using value_type = std::basic_string_view<char_type>;
-  using parsed_type = std::basic_string<char_type>;
-  using tag_type = value_type;
-  using element_type = std::variant<tag_type, parsed_type>;
+  using pointer = char_type*;
+  using const_pointer = const char_type*;
+
   using size_type = std::uint32_t;
+  using allocator_type = std::allocator<char_type>;
 
  private:
   using self_type = json_key;
   using super_type = json_string_base<json_key>;
 
   union {
-    char_type const* cptr_;
-    char_type* ptr_;
-  } data_;
-  size_type size_;
-  bool is_view_;
+    const_pointer cptr_;
+    pointer ptr_;
+  } data_{};
+  size_type size_{};
+  bool is_view_{};
 
   [[no_unique_address]] allocator_type allocator_{};
 
-  void init_key(std::string_view view);
-
-  char_type* copy_string(const char_type* src, size_type src_len);
-  static void destroy_string(allocator_type& alloc, char_type* d,
+  char_type* copy_string(const_pointer src, size_type src_len);
+  static void destroy_string(allocator_type& alloc, pointer d,
                              size_type len) noexcept;
 
  public:
   json_key() noexcept = default;
+
+  // for raw string parser
+  template <std::size_t IsView>
+  explicit json_key(std::in_place_index_t<IsView> ipi,
+                    std::string_view sv) noexcept(IsView > 0);
+
+  // for emplace
   json_key(std::string_view sv);
-  json_key(const char_type* c);
 
   json_key(self_type const&);
   self_type& operator=(self_type const&);
@@ -295,15 +297,13 @@ class json_key : public json_string_base<json_key> {
 
   ~json_key() noexcept;
 
-  value_type get() const noexcept;
+  std::string_view get() const noexcept;
   // std::size_t index() const noexcept;
   std::size_t size() const noexcept;
-  operator value_type() const noexcept;
+  operator std::string_view() const noexcept;
 
   friend std::ostream& operator<<(std::ostream& os, json_key const& obj);
 };
-
-static_assert(sizeof(json_key) <= 16);
 
 std::strong_ordering operator<=>(json_key const& a, json_key const& b) noexcept;
 bool operator==(json_key const& a, json_key const& b) noexcept;
@@ -311,6 +311,26 @@ std::strong_ordering operator<=>(json_key const& a,
                                  std::string_view b) noexcept;
 bool operator==(json_key const& a, std::string_view b) noexcept;
 
+template <std::size_t IsView>
+json_key::json_key(std::in_place_index_t<IsView> ipi,
+                   std::string_view sv) noexcept(IsView > 0) {
+  if constexpr (IsView > 0) {
+    this->data_.cptr_ = sv.data();
+    this->size_ = sv.size();
+    this->is_view_ = (IsView > 0);
+  } else {
+    auto [s, written_size, err] = lazy::utils::unescape_string(sv);
+    if (err != std::errc{}) {
+      throw std::invalid_argument{
+          "failed to unescape string, invalid escaped string"};
+    }
+    this->data_.cptr_ = copy_string(s.data(), written_size);
+    this->size_ = written_size;
+    this->is_view_ = (IsView > 0);
+  }
+}
+
+static_assert(sizeof(json_key) <= 16);
 static_assert(std::three_way_comparable<json_key>);
 
 class json_string : public json_string_base<json_string> {
