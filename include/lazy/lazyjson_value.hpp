@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <iostream>
 #include <limits>
+#include <memory>
 #include <string>
 #include <string_view>
 #include <system_error>
@@ -255,31 +256,54 @@ struct json_string_base : public json_primitive<T> {
 class json_key : public json_string_base<json_key> {
  public:
   using char_type = char;
+  using allocator_type = std::allocator<char_type>;
   using value_type = std::basic_string_view<char_type>;
   using parsed_type = std::basic_string<char_type>;
   using tag_type = value_type;
   using element_type = std::variant<tag_type, parsed_type>;
+  using size_type = std::uint32_t;
 
  private:
   using self_type = json_key;
   using super_type = json_string_base<json_key>;
 
-  element_type item;
+  union {
+    char_type const* cptr_;
+    char_type* ptr_;
+  } data_;
+  size_type size_;
+  bool is_view_;
 
-  static void init_key(std::string_view view, element_type& item);
+  [[no_unique_address]] allocator_type allocator_{};
+
+  void init_key(std::string_view view);
+
+  char_type* copy_string(const char_type* src, size_type src_len);
+  static void destroy_string(allocator_type& alloc, char_type* d,
+                             size_type len) noexcept;
 
  public:
   json_key() noexcept = default;
   json_key(std::string_view sv);
   json_key(const char_type* c);
 
+  json_key(self_type const&);
+  self_type& operator=(self_type const&);
+
+  json_key(self_type&&) noexcept;
+  self_type& operator=(self_type&&) noexcept;
+
+  ~json_key() noexcept;
+
   value_type get() const noexcept;
-  std::size_t index() const noexcept;
+  // std::size_t index() const noexcept;
   std::size_t size() const noexcept;
   operator value_type() const noexcept;
 
   friend std::ostream& operator<<(std::ostream& os, json_key const& obj);
 };
+
+static_assert(sizeof(json_key) <= 16);
 
 std::strong_ordering operator<=>(json_key const& a, json_key const& b) noexcept;
 bool operator==(json_key const& a, json_key const& b) noexcept;
