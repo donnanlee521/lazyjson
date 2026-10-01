@@ -135,10 +135,10 @@ class json {
   operator std::string_view() const;
   explicit operator std::nullptr_t() const;
 
-  json_array& get_array();
-  json_array const& get_array() const;
-  json_dict& get_dict();
-  json_dict const& get_dict() const;
+  inline json_array& get_array();
+  inline json_array const& get_array() const;
+  inline json_dict& get_dict();
+  inline json_dict const& get_dict() const;
 
   std::size_t index() const noexcept;
 
@@ -153,7 +153,6 @@ class json {
   json& operator[](std::size_t idx);
   json const& operator[](std::size_t idx) const;
   json& operator[](std::basic_string_view<char_type> key);
-  json const& operator[](std::basic_string_view<char_type> key) const;
 
   json& at(std::size_t idx);
   json const& at(std::size_t idx) const;

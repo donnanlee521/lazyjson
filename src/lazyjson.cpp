@@ -259,26 +259,12 @@ json::json(tag_array_type&& arr) noexcept
 json::json(tag_dict_type&& dict) noexcept
     : item{std::in_place_type<tag_dict_type>, std::move(dict)} {}
 
-json_array const& json::get_array() const {
-  return this->get_container_of<tag_array_type>();
-};
-json_dict const& json::get_dict() const {
-  return this->get_container_of<tag_dict_type>();
-};
-json_array& json::get_array() {
-  return this->get_container_of<tag_array_type>();
-};
-json_dict& json::get_dict() { return this->get_container_of<tag_dict_type>(); };
-
-json& json::operator[](std::size_t idx) { return this->get_array().at(idx); }
+json& json::operator[](std::size_t idx) { return this->get_array()[idx]; }
 json const& json::operator[](std::size_t idx) const {
-  return this->get_array().at(idx);
+  return this->get_array()[idx];
 }
 json& json::operator[](std::basic_string_view<char_type> key) {
-  return this->get_dict().at(key);
-}
-json const& json::operator[](std::basic_string_view<char_type> key) const {
-  return this->get_dict().at(key);
+  return this->get_dict()[key];
 }
 
 json& json::at(std::size_t idx) { return this->get_array().at(idx); }

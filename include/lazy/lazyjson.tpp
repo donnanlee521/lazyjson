@@ -33,6 +33,17 @@ U const& json::get_container_of() const {
   return std::get<U>(this->item);
 }
 
+json_array const& json::get_array() const {
+  return this->get_container_of<tag_array_type>();
+};
+json_dict const& json::get_dict() const {
+  return this->get_container_of<tag_dict_type>();
+};
+json_array& json::get_array() {
+  return this->get_container_of<tag_array_type>();
+};
+json_dict& json::get_dict() { return this->get_container_of<tag_dict_type>(); };
+
 template <bool V>
 json::tag_return_type json::tag_json_boolean(
     value_type& tag, char_const_pointer_type b,
