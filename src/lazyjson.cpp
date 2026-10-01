@@ -264,7 +264,11 @@ json const& json::operator[](std::size_t idx) const {
   return this->get_array()[idx];
 }
 json& json::operator[](std::basic_string_view<char_type> key) {
-  return this->get_dict()[key];
+  return this->get_container_of<tag_dict_type, true>()[key];
+}
+
+json const& json::operator[](std::basic_string_view<char_type> key) const {
+  return this->get_container_of<tag_dict_type>().at(key);
 }
 
 json& json::at(std::size_t idx) { return this->get_array().at(idx); }

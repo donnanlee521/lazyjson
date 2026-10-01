@@ -153,6 +153,7 @@ class json {
   json& operator[](std::size_t idx);
   json const& operator[](std::size_t idx) const;
   json& operator[](std::basic_string_view<char_type> key);
+  json const& operator[](std::basic_string_view<char_type> key) const;
 
   json& at(std::size_t idx);
   json const& at(std::size_t idx) const;
@@ -174,6 +175,7 @@ class json {
 
 static_assert(std::is_nothrow_move_constructible_v<json>);
 static_assert(std::is_nothrow_move_assignable_v<json>);
+static_assert(std::semiregular<json>);
 
 template <std::size_t I = 4>
 class json_formatter {

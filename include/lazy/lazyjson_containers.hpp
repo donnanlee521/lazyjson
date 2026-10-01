@@ -47,30 +47,43 @@ class json_ordered_dict {
   key_container_type k_;
   value_container_type v_;
 
-  decltype(auto) lower_bound(std::string_view key) {
-    return std::ranges::lower_bound(this->k_, key,
-                                    std::less<std::string_view>{});
+  decltype(auto) lower_bound(std::string_view key) noexcept {
+    auto ki =
+        std::ranges::lower_bound(this->k_, key, std::less<std::string_view>{});
+    auto vi = std::ranges::next(this->v_.begin(),
+                                std::ranges::distance(this->k_.begin(), ki));
+    return std::make_pair(ki, vi);
   }
 
-  decltype(auto) lower_bound(std::string_view key) const {
-    return std::ranges::lower_bound(this->k_, key,
-                                    std::less<std::string_view>{});
+  decltype(auto) lower_bound(std::string_view key) const noexcept {
+    auto ki =
+        std::ranges::lower_bound(this->k_, key, std::less<std::string_view>{});
+    auto vi = std::ranges::next(this->v_.begin(),
+                                std::ranges::distance(this->k_.begin(), ki));
+    return std::make_pair(ki, vi);
   }
 
+  template <bool InsertIfNull = false>
   mapped_type& get_val(std::string_view key) {
-    auto iter = this->lower_bound(key);
-    if (iter == this->k_.end() || *iter != key) {
-      throw std::invalid_argument{std::format("invalid key {}", key)};
+    auto [ki, vi] = this->lower_bound(key);
+    if (ki != this->k_.end() && *ki == key) {
+      return *vi;
     }
-    return *std::next(this->v_.begin(), std::distance(this->k_.begin(), iter));
+
+    if constexpr (InsertIfNull) {
+      this->k_.emplace(ki, key);
+      return *this->v_.emplace(vi);
+    }
+    throw std::invalid_argument{std::format("invalid key \"{}\"", key)};
   }
 
   mapped_type const& get_val(std::string_view key) const {
-    auto iter = this->lower_bound(key);
-    if (iter == this->k_.end() || *iter != key) {
-      throw std::invalid_argument{std::format("invalid key {}", key)};
+    auto [ki, vi] = this->lower_bound(key);
+    if (ki != this->k_.end() && *ki == key) {
+      return *vi;
     }
-    return *std::next(this->v_.begin(), std::distance(this->k_.begin(), iter));
+
+    throw std::invalid_argument{std::format("invalid key \"{}\"", key)};
   }
 
   static iterator_type make_dict_iter(
@@ -110,32 +123,32 @@ class json_ordered_dict {
 
   template <string_view_convertible<char> U, typename... Args>
   std::pair<iterator_type, bool> emplace(U&& key, Args&&... args) {
-    auto key_iter = this->lower_bound(key);
-    auto val_iter = std::next(v_.begin(), std::distance(k_.begin(), key_iter));
-    if (key_iter != this->k_.end() && *key_iter == key) {
-      return {make_dict_iter(key_iter, val_iter), false};
+    auto [ki, vi] = this->lower_bound(key);
+    if (ki != this->k_.end() && *ki == key) {
+      return {make_dict_iter(ki, vi), false};
     }
 
-    key_iter = this->k_.emplace(key_iter, std::forward<U>(key));
-    val_iter = this->v_.emplace(val_iter, std::forward<Args>(args)...);
+    ki = this->k_.emplace(ki, std::forward<U>(key));
+    vi = this->v_.emplace(vi, std::forward<Args>(args)...);
 
-    return {make_dict_iter(key_iter, val_iter), true};
+    return {make_dict_iter(ki, vi), true};
   }
 
   iterator_type find(std::string_view key) {
-    auto key_iter = this->lower_bound(key);
-    auto val_iter = std::next(v_.begin(), std::distance(k_.begin(), key_iter));
-    if (key_iter == this->k_.end() || *key_iter != key) {
+    auto [ki, vi] = this->lower_bound(key);
+    if (ki == this->k_.end() || *ki != key) {
       return make_dict_iter(this->k_.end(), this->v_.end());
     }
-    return make_dict_iter(key_iter, val_iter);
+    return make_dict_iter(ki, vi);
   }
 
-  mapped_type& operator[](std::string_view key) { return this->get_val(key); };
-  mapped_type const& operator[](std::string_view key) const {
-    return this->get_val(key);
+  mapped_type& operator[](std::string_view key) {
+    return this->get_val<true>(key);
   };
-  mapped_type& at(std::string_view key) { return this->get_val(key); };
+  // mapped_type const& operator[](std::string_view key) const {
+  //   return this->get_val(key);
+  // };
+  mapped_type& at(std::string_view key) { return this->get_val<false>(key); };
   mapped_type const& at(std::string_view key) const {
     return this->get_val(key);
   };
@@ -278,8 +291,7 @@ json_ordered_dict_iterator<KT, VT> operator+(
 }
 
 static_assert(
-    std::bidirectional_iterator<json_ordered_dict_iterator<std::string, int>>);
-
+    std::random_access_iterator<json_ordered_dict_iterator<std::string, int>>);
 };  // namespace lazy
 
 #endif
