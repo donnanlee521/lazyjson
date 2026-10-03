@@ -142,8 +142,11 @@ constexpr json_null::operator std::string_view() const noexcept {
   return json_null::null_exp;
 }
 
-constexpr json_boolean::json_boolean(bool val) noexcept
-    : super_type{}, item{val} {}
+constexpr json_null::value_type json_null::get() const noexcept {
+  return nullptr;
+}
+
+constexpr json_boolean::json_boolean(bool val) noexcept : item{val} {}
 
 constexpr json_boolean::value_type& json_boolean::get() noexcept {
   return item;
@@ -161,11 +164,11 @@ template <std::integral IntT>
 template <typename U, typename... Args>
 constexpr json_integer<IntT>::json_integer(
     std::in_place_type_t<U> inplace_holder, Args&&... args) noexcept
-    : super_type{}, item{inplace_holder, std::forward<Args>(args)...} {}
+    : item{inplace_holder, std::forward<Args>(args)...} {}
 
 template <std::integral IntT>
 constexpr json_integer<IntT>::json_integer(value_type val) noexcept
-    : super_type{}, item{std::in_place_type<value_type>, val} {}
+    : item{std::in_place_type<value_type>, val} {}
 
 template <std::integral IntT>
 constexpr std::size_t json_integer<IntT>::index() const noexcept {
@@ -173,7 +176,7 @@ constexpr std::size_t json_integer<IntT>::index() const noexcept {
 }
 
 template <std::integral IntT>
-std::errc json_integer<IntT>::convert() const {
+std::errc json_integer<IntT>::parse() const {
   if (std::holds_alternative<tag_type>(this->item)) {
     auto const& tagged = std::get<tag_type>(this->item);
     auto parsed = tagged.template parse<value_type>();
@@ -187,7 +190,7 @@ std::errc json_integer<IntT>::convert() const {
 
 template <std::integral IntT>
 json_integer<IntT>::value_type json_integer<IntT>::get() const {
-  if (this->convert() != std::errc{}) {
+  if (this->parse() != std::errc{}) {
     throw std::invalid_argument{"failed to parse integer string"};
   }
   return std::get<value_type>(this->item);
@@ -203,11 +206,11 @@ template <std::floating_point FloatT>
 template <typename U, typename... Args>
 constexpr json_float<FloatT>::json_float(std::in_place_type_t<U> inplace_holder,
                                          Args&&... args) noexcept
-    : super_type{}, item{inplace_holder, std::forward<Args>(args)...} {}
+    : item{inplace_holder, std::forward<Args>(args)...} {}
 
 template <std::floating_point FloatT>
 constexpr json_float<FloatT>::json_float(value_type val) noexcept
-    : super_type{}, item{std::in_place_type<value_type>, val} {}
+    : item{std::in_place_type<value_type>, val} {}
 
 template <std::floating_point FloatT>
 constexpr std::size_t json_float<FloatT>::index() const noexcept {
@@ -215,7 +218,7 @@ constexpr std::size_t json_float<FloatT>::index() const noexcept {
 }
 
 template <std::floating_point FloatT>
-std::errc json_float<FloatT>::convert() const {
+std::errc json_float<FloatT>::parse() const {
   if (std::holds_alternative<tag_type>(item)) {
     auto const& tagged = std::get<tag_type>(item);
     auto parsed = tagged.template parse<value_type>();
@@ -229,7 +232,7 @@ std::errc json_float<FloatT>::convert() const {
 
 template <std::floating_point FloatT>
 json_float<FloatT>::value_type json_float<FloatT>::get() const {
-  if (this->convert() != std::errc{}) {
+  if (this->parse() != std::errc{}) {
     throw std::invalid_argument{"failed to parse float string"};
   }
   return std::get<value_type>(this->item);
@@ -239,17 +242,6 @@ template <std::floating_point FloatU>
 std::ostream& operator<<(std::ostream& os, json_float<FloatU> const& obj) {
   std::visit([&os](auto&& parsed) -> void { os << parsed; }, obj.item);
   return os;
-}
-
-template <class T>
-std::tuple<std::string, std::size_t, std::errc>
-json_string_base<T>::unescape_if(std::string_view s) {
-  const auto esc_loc = lazy::utils::find_escape_char(s);
-  if (esc_loc == s.size()) {
-    // no escape seq found
-    return {{}, esc_loc, std::errc{}};
-  }
-  return lazy::utils::unescape_string(s, esc_loc);
 }
 
 template <std::size_t I, typename... Args>

@@ -2,6 +2,7 @@
 #include "lazy/lazyjson_value.hpp"
 
 #include <cstddef>
+#include <limits>
 #include <memory>
 #include <stdexcept>
 #include <utility>
@@ -21,8 +22,6 @@ std::ostream& operator<<(std::ostream& os, json_float_tag const& self) {
   return os.write(self.data_, self.size_);
 }
 
-json_null::value_type json_null::get() const noexcept { return nullptr; }
-
 std::ostream& operator<<(std::ostream& os, json_null obj) {
   return os.write(json_null::null_exp, 4);
 }
@@ -31,70 +30,89 @@ std::ostream& operator<<(std::ostream& os, json_boolean obj) {
   return os << static_cast<std::string_view>(obj);
 }
 
-json_key::char_type* json_key::copy_string(const char_type* src,
-                                           size_type src_len) {
-  char_type* dst =
-      std::allocator_traits<allocator_type>::allocate(allocator_, src_len + 1);
-  *std::uninitialized_copy_n(src, src_len, dst) = '\0';
-  return dst;
+json_key::pointer json_key::allocate_string() {
+  return this->on_sso() ? nullptr
+                        : std::allocator_traits<allocator_type>::allocate(
+                              allocator_, this->size_ + 1);
 }
 
-void json_key::destroy_string(allocator_type& alloc, char_type* p,
-                              size_type len) noexcept {
-  std::allocator_traits<allocator_type>::deallocate(alloc, p, len + 1);
+void json_key::copy_string(const_pointer src, size_type len,
+                           pointer dst) noexcept {
+  *std::uninitialized_copy_n(src, len, dst) = '\0';
+}
+
+void json_key::destroy_string() noexcept {
+  if (this->data_.cptr_ && this->on_heap()) {
+    std::allocator_traits<allocator_type>::deallocate(
+        this->allocator_, this->get_pointer(), this->size_ + 1);
+  }
 }
 
 json_key::json_key(std::string_view sv)
-    : data_{copy_string(sv.data(), sv.size())},
-      size_{static_cast<size_type>(sv.size())},
-      is_view_{false} {}
+    : size_{static_cast<size_type>(sv.size())},
+      is_view_{false},
+      data_{allocate_string()} {
+  copy_string(sv.data(), size_, this->get_pointer());
+}
 
 json_key::json_key(self_type const& other)
-    : data_{.cptr_ = other.is_view_
-                         ? other.data_.cptr_
-                         : copy_string(other.data_.cptr_, other.size_)},
-      size_{other.size_},
-      is_view_{other.is_view_} {}
+    : size_{other.size_},
+      is_view_{other.is_view_},
+      data_{.cptr_ = is_view_ ? other.data_.cptr_ : allocate_string()} {
+  if (!is_view_) {
+    copy_string(other.get_pointer(), size_, this->get_pointer());
+  }
+}
 
 json_key& json_key::operator=(self_type const& other) {
-  this->data_.cptr_ = other.is_view_
-                          ? other.data_.cptr_
-                          : copy_string(other.data_.cptr_, other.size_);
   this->size_ = other.size_;
   this->is_view_ = other.is_view_;
+  this->data_.cptr_ = this->is_view_ ? other.data_.cptr_ : allocate_string();
+  if (!this->is_view_) {
+    copy_string(other.get_pointer(), this->size_, this->get_pointer());
+  }
   return *this;
 }
 
 json_key::json_key(self_type&& other) noexcept
-    : data_{std::exchange(other.data_.cptr_, nullptr)},
-      size_{other.size_},
-      is_view_(other.is_view_) {}
-
-json_key& json_key::operator=(self_type&& other) noexcept {
-  this->data_.cptr_ = std::exchange(other.data_.cptr_, nullptr);
-  this->size_ = other.size_;
-  this->is_view_ = other.is_view_;
-  return *this;
-}
-
-json_key::~json_key() noexcept {
-  if (this->data_.ptr_ && !this->is_view_) {
-    destroy_string(this->allocator_, this->data_.ptr_, this->size_);
+    : size_{other.size_},
+      is_view_{other.is_view_},
+      data_{.cptr_ = other.on_sso()
+                         ? nullptr
+                         : std::exchange(other.data_.cptr_, nullptr)} {
+  if (this->on_sso()) {
+    copy_string(other.sso_, size_, this->sso_);
   }
 }
 
-std::string_view json_key::get() const noexcept {
-  return {this->data_.cptr_, this->size_};
+json_key& json_key::operator=(self_type&& other) noexcept {
+  this->size_ = other.size_;
+  this->is_view_ = other.is_view_;
+  if (other.on_sso()) {
+    copy_string(other.sso_, size_, this->sso_);
+  } else {
+    this->data_.cptr_ = std::exchange(other.data_.cptr_, nullptr);
+  }
+  return *this;
 }
 
-std::size_t json_key::size() const noexcept { return this->size_; }
+json_key::~json_key() noexcept { destroy_string(); }
+
+std::string_view json_key::get() const noexcept {
+  return {this->get_pointer(), this->size_};
+}
+
+json_key::size_type json_key::size() const noexcept { return this->size_; }
+json_key::size_type json_key::max_size() const noexcept {
+  return std::numeric_limits<size_type>::max();
+}
 
 json_key::operator std::string_view() const noexcept { return this->get(); }
 
 std::ostream& operator<<(std::ostream& os, json_key const& obj) {
   os << '"';
   if (obj.is_view_) {
-    os.write(obj.data_.cptr_, obj.size_);
+    os.write(obj.get_pointer(), obj.size_);
   } else {
     os << lazy::utils::escape_string(obj);
   }
@@ -120,7 +138,7 @@ bool operator==(json_key const& a, std::string_view b) noexcept {
   return a.get() == b;
 }
 
-std::errc json_string::convert() const {
+std::errc json_string::parse() const {
   if (this->item.index() == json_string::esc_inc_tag_idx) {
     auto&& [unescaped, _, er] = lazy::utils::unescape_string(
         std::get<json_string::esc_inc_tag_idx>(this->item));
@@ -136,7 +154,7 @@ json_string::value_type json_string::get() const {
   if (this->index() == json_string::esc_not_inc_tag_idx) {
     return std::get<json_string::esc_not_inc_tag_idx>(this->item);
   }
-  if (this->convert() != std::errc{}) {
+  if (this->parse() != std::errc{}) {
     throw std::invalid_argument{"invalid escaped string"};
   }
   return std::get<json_string::parsed_idx>(this->item);

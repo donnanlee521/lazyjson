@@ -304,7 +304,7 @@ const json& json::parse_all() const {
         if constexpr (std::same_as<T, string_type> ||
                       std::same_as<T, integer_type> ||
                       std::same_as<T, floating_type>) {
-          v.convert();
+          v.parse();
         } else if constexpr (std::same_as<T, tag_array_type>) {
           for (const auto& j : v) {
             j.parse_all();

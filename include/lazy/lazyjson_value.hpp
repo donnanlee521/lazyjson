@@ -128,35 +128,25 @@ static_assert(std::is_default_constructible_v<json_float_tag>);
 static_assert(sizeof(json_float_tag) <= 24, "size is larger then 24");
 
 template <typename T>
-struct json_primitive;
-
-template <typename T>
-concept lazyjson_type_protocol =
-    std::derived_from<T, json_primitive<T>> && requires(T a, std::ostream& os) {
-      typename T::value_type;
-
-      { a.get() } -> std::convertible_to<typename T::value_type>;
-      { os << a } -> std::convertible_to<std::ostream&>;
-    };
+concept lazyjson_type_protocol = requires(T a, std::ostream& os) {
+  typename T::value_type;
+  { a.get() } -> std::convertible_to<typename T::value_type>;
+  { os << a } -> std::convertible_to<std::ostream&>;
+};
 
 template <typename T>
 concept lazyjson_lazy_type_protocol =
     lazyjson_type_protocol<T> && requires(T a) {
-      { a.convert() } -> std::same_as<std::errc>;
+      { a.parse() } -> std::same_as<std::errc>;
     };
 
-template <typename T>
-struct json_primitive {};
-
-struct json_null : public json_primitive<json_null> {
+struct json_null {
   constexpr static char null_exp[]{"null"};
+
   using value_type = std::nullptr_t;
 
- private:
-  using super_type = json_primitive<json_null>;
-
  public:
-  value_type get() const noexcept;
+  constexpr value_type get() const noexcept;
   constexpr operator std::string_view() const noexcept;
 };
 
@@ -164,15 +154,13 @@ std::ostream& operator<<(std::ostream& os, json_null obj);
 
 static_assert(lazyjson_type_protocol<json_null>);
 
-struct json_boolean : public json_primitive<json_boolean> {
+struct json_boolean {
   constexpr static char true_exp[]{"true"};
   constexpr static char false_exp[]{"false"};
 
   using value_type = bool;
 
  private:
-  using super_type = json_primitive<json_boolean>;
-
   value_type item;
 
  public:
@@ -187,16 +175,17 @@ struct json_boolean : public json_primitive<json_boolean> {
   friend std::ostream& operator<<(std::ostream& os, json_boolean obj);
 };
 
+std::ostream& operator<<(std::ostream& os, json_boolean obj);
+
 static_assert(lazyjson_type_protocol<json_boolean>);
 
 template <std::integral IntT>
-class json_integer : public json_primitive<json_integer<IntT>> {
+class json_integer {
  public:
   using value_type = IntT;
   using tag_type = json_integer_tag;
 
  private:
-  using super_type = json_primitive<json_integer<IntT>>;
   using container_type = std::variant<value_type, tag_type>;
   mutable container_type item;
 
@@ -207,7 +196,7 @@ class json_integer : public json_primitive<json_integer<IntT>> {
   constexpr json_integer(value_type val) noexcept;
 
   constexpr std::size_t index() const noexcept;
-  std::errc convert() const;
+  std::errc parse() const;
   value_type get() const;
 
   template <std::integral IntU>
@@ -218,13 +207,12 @@ class json_integer : public json_primitive<json_integer<IntT>> {
 static_assert(lazyjson_lazy_type_protocol<json_integer<int>>);
 
 template <std::floating_point FloatT>
-class json_float : public json_primitive<json_float<FloatT>> {
+class json_float {
  public:
   using value_type = FloatT;
   using tag_type = json_float_tag;
 
  private:
-  using super_type = json_primitive<json_float<FloatT>>;
   using container_type = std::variant<value_type, tag_type>;
   mutable container_type item{};
 
@@ -235,7 +223,7 @@ class json_float : public json_primitive<json_float<FloatT>> {
   constexpr json_float(value_type val) noexcept;
 
   constexpr std::size_t index() const noexcept;
-  std::errc convert() const;
+  std::errc parse() const;
   value_type get() const;
 
   template <std::floating_point FloatU>
@@ -245,16 +233,10 @@ class json_float : public json_primitive<json_float<FloatT>> {
 
 static_assert(lazyjson_lazy_type_protocol<json_float<float>>);
 
-template <class T>
-struct json_string_base : public json_primitive<T> {
- protected:
-  static std::tuple<std::string, std::size_t, std::errc> unescape_if(
-      std::string_view s);
-};
-
-class json_key : public json_string_base<json_key> {
+class json_key {
  public:
   using char_type = char;
+  using value_type = std::basic_string_view<char_type>;
   using pointer = char_type*;
   using const_pointer = const char_type*;
 
@@ -263,20 +245,29 @@ class json_key : public json_string_base<json_key> {
 
  private:
   using self_type = json_key;
-  using super_type = json_string_base<json_key>;
 
-  union {
-    const_pointer cptr_;
-    pointer ptr_;
-  } data_{};
   size_type size_{};
   bool is_view_{};
+  union {
+    union {
+      pointer ptr_;
+      const_pointer cptr_;
+    } data_{};
+    char_type sso_[16];
+  };
 
   [[no_unique_address]] allocator_type allocator_{};
 
-  char_type* copy_string(const_pointer src, size_type src_len);
-  static void destroy_string(allocator_type& alloc, pointer d,
-                             size_type len) noexcept;
+  pointer allocate_string();
+  void destroy_string() noexcept;
+  static void copy_string(const_pointer src, size_type len,
+                          pointer dst) noexcept;
+
+  inline bool on_sso() const noexcept;
+  inline bool on_heap() const noexcept;
+
+  inline pointer get_pointer() noexcept;
+  inline const_pointer get_pointer() const noexcept;
 
  public:
   json_key() noexcept = default;
@@ -297,13 +288,49 @@ class json_key : public json_string_base<json_key> {
 
   ~json_key() noexcept;
 
-  std::string_view get() const noexcept;
-  // std::size_t index() const noexcept;
-  std::size_t size() const noexcept;
+  size_type size() const noexcept;
+  size_type max_size() const noexcept;
+  value_type get() const noexcept;
   operator std::string_view() const noexcept;
 
   friend std::ostream& operator<<(std::ostream& os, json_key const& obj);
 };
+
+bool json_key::on_sso() const noexcept {
+  return this->size_ < sizeof(sso_) && !is_view_;
+}
+
+bool json_key::on_heap() const noexcept {
+  return this->size_ >= sizeof(sso_) && !is_view_;
+}
+
+json_key::pointer json_key::get_pointer() noexcept {
+  return this->on_sso() ? this->sso_ : this->data_.ptr_;
+}
+
+json_key::const_pointer json_key::get_pointer() const noexcept {
+  return this->on_sso() ? this->sso_ : this->data_.cptr_;
+}
+
+template <std::size_t IsView>
+json_key::json_key(std::in_place_index_t<IsView> ipi,
+                   std::string_view sv) noexcept(IsView > 0) {
+  if constexpr (IsView > 0) {
+    this->size_ = sv.size();
+    this->is_view_ = (IsView > 0);
+    this->data_.cptr_ = sv.data();
+  } else {
+    auto [s, written_size, err] = lazy::utils::unescape_string(sv);
+    if (err != std::errc{}) {
+      throw std::invalid_argument{
+          "failed to unescape string, invalid escaped string"};
+    }
+    this->size_ = written_size;
+    this->is_view_ = (IsView > 0);
+    this->data_.cptr_ = this->allocate_string();
+    copy_string(s.data(), s.size(), this->get_pointer());
+  }
+}
 
 std::strong_ordering operator<=>(json_key const& a, json_key const& b) noexcept;
 bool operator==(json_key const& a, json_key const& b) noexcept;
@@ -311,29 +338,10 @@ std::strong_ordering operator<=>(json_key const& a,
                                  std::string_view b) noexcept;
 bool operator==(json_key const& a, std::string_view b) noexcept;
 
-template <std::size_t IsView>
-json_key::json_key(std::in_place_index_t<IsView> ipi,
-                   std::string_view sv) noexcept(IsView > 0) {
-  if constexpr (IsView > 0) {
-    this->data_.cptr_ = sv.data();
-    this->size_ = sv.size();
-    this->is_view_ = (IsView > 0);
-  } else {
-    auto [s, written_size, err] = lazy::utils::unescape_string(sv);
-    if (err != std::errc{}) {
-      throw std::invalid_argument{
-          "failed to unescape string, invalid escaped string"};
-    }
-    this->data_.cptr_ = copy_string(s.data(), written_size);
-    this->size_ = written_size;
-    this->is_view_ = (IsView > 0);
-  }
-}
-
-static_assert(sizeof(json_key) <= 16);
+static_assert(sizeof(json_key) <= 24);
 static_assert(std::three_way_comparable<json_key>);
 
-class json_string : public json_string_base<json_string> {
+class json_string {
  public:
   using char_type = char;
   using value_type = std::basic_string_view<char_type>;
@@ -350,7 +358,6 @@ class json_string : public json_string_base<json_string> {
 
  private:
   using self_type = json_string;
-  using super_type = json_primitive<json_string>;
   mutable element_type item;
 
  public:
@@ -364,7 +371,7 @@ class json_string : public json_string_base<json_string> {
   constexpr json_string(std::string_view sv);
   constexpr json_string(char_type const* c);
 
-  std::errc convert() const;
+  std::errc parse() const;
   value_type get() const;
   std::size_t index() const noexcept;
   std::size_t size() const noexcept;
