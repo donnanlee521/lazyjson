@@ -22,31 +22,6 @@
 
 namespace lazy {
 
-namespace utils {
-
-template <std::floating_point R>
-constexpr R powof(R base, int exponent) noexcept {
-  if (exponent < 0) {
-    return R{1.0} / powof<R>(base, -exponent);
-  }
-
-  R ret{1.0};
-  while (exponent > 0) {
-    if (exponent % 2 == 1) {
-      ret *= base;
-    }
-    base *= base;
-    exponent /= 2;
-  }
-  return ret;
-}
-
-template <typename CharT>
-constexpr bool isdigit(CharT c) noexcept {
-  return ('0' <= c) && (c <= '9');
-}
-}  // namespace utils
-
 template <typename T>
 struct parse_result {
   T value;

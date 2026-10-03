@@ -51,7 +51,7 @@ json_integer_tag::tag(char_type const* b, char_type const* e) noexcept {
   const auto _b{b};
   for (; b < e; ++b) {
     c = *b;
-    if (!utils::isdigit(c)) {
+    if (!::isdigit(c)) {
       break;
     }
   }
@@ -99,7 +99,7 @@ json_float_tag::tag(char_type const* _b, char_type const* e,
     ++b;
     for (; b < e; ++b) {
       c = *b;
-      if (!utils::isdigit(c)) {
+      if (!::isdigit(c)) {
         break;
       }
     }
@@ -117,7 +117,7 @@ json_float_tag::tag(char_type const* _b, char_type const* e,
     }
     for (; b < e; ++b) {
       c = *b;
-      if (!utils::isdigit(c)) {
+      if (!::isdigit(c)) {
         break;
       }
     }
@@ -295,7 +295,7 @@ constexpr std::pair<std::size_t, json_float_tag> json_float_tag::tag(
     fstt = ++i + deci_size;
     for (; i < e; ++i) {
       c = s[i];
-      if (!utils::isdigit(c)) {
+      if (!::isdigit(c)) {
         break;
       }
     }
@@ -318,7 +318,7 @@ constexpr std::pair<std::size_t, json_float_tag> json_float_tag::tag(
     estt = i + deci_size;
     for (; i < e; ++i) {
       c = s[i];
-      if (!utils::isdigit(c)) {
+      if (!::isdigit(c)) {
         break;
       }
     }
