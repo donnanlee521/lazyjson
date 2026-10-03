@@ -19,7 +19,7 @@
 
 #include "lazyjson_concept.hpp"
 #include "lazyjson_containers.hpp"
-#include "lazyjson_value.hpp"
+#include "lazyjson_types.hpp"
 
 namespace lazy {
 

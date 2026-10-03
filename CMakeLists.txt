@@ -20,8 +20,8 @@ set(public_headers
 list(APPEND public_headers
     "include/lazy/lazyjson.hpp"
     "include/lazy/lazyjson.tpp"
-    "include/lazy/lazyjson_value.hpp"
-    "include/lazy/lazyjson_value.tpp"
+    "include/lazy/lazyjson_types.hpp"
+    "include/lazy/lazyjson_types.tpp"
     "include/lazy/lazyjson_utils.hpp"
     "include/lazy/lazyjson_concept.hpp"
     "include/lazy/lazyjson_containers.hpp")

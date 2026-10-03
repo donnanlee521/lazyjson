@@ -5,7 +5,7 @@
 #include <charconv>
 #include <memory>
 
-#include "lazyjson_value.hpp"
+#include "lazyjson_types.hpp"
 
 namespace lazy {
 

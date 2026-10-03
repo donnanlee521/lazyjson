@@ -428,5 +428,5 @@ struct std::hash<lazy::json_key> {
   }
 };
 
-#include "lazyjson_value.tpp"
+#include "lazyjson_types.tpp"
 #endif

@@ -1,5 +1,5 @@
 
-#include "lazy/lazyjson_value.hpp"
+#include "lazy/lazyjson_types.hpp"
 
 #include <cstddef>
 #include <limits>
