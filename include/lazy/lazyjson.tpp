@@ -34,15 +34,13 @@ U const& json::get_container_of() const {
 }
 
 json_array const& json::get_array() const {
-  return this->get_container_of<tag_array_type>();
+  return this->get_container_of<array_type>();
 };
 json_dict const& json::get_dict() const {
-  return this->get_container_of<tag_dict_type>();
+  return this->get_container_of<dict_type>();
 };
-json_array& json::get_array() {
-  return this->get_container_of<tag_array_type>();
-};
-json_dict& json::get_dict() { return this->get_container_of<tag_dict_type>(); };
+json_array& json::get_array() { return this->get_container_of<array_type>(); };
+json_dict& json::get_dict() { return this->get_container_of<dict_type>(); };
 
 template <bool V>
 json::tag_return_type json::tag_json_boolean(
@@ -82,13 +80,13 @@ json::operator V() const {
 
 template <typename U>
 json& json::emplace_back(U&& val) {
-  return this->get_container_of<tag_array_type, true>().emplace_back(
+  return this->get_container_of<array_type, true>().emplace_back(
       std::forward<U>(val));
 }
 
 template <typename U>
 decltype(auto) json::emplace(std::basic_string_view<char_type> key, U&& val) {
-  return this->get_container_of<tag_dict_type, true>().emplace(
+  return this->get_container_of<dict_type, true>().emplace(
       key, std::forward<U>(val));
 }
 
@@ -124,7 +122,7 @@ std::ostream& operator<<(std::ostream& os, json_formatter<J> const& val) {
   std::visit(
       [&os, &val](auto&& p) {
         using T = std::decay_t<decltype(p)>;
-        if constexpr (std::same_as<T, typename json::tag_array_type>) {
+        if constexpr (std::same_as<T, typename json::array_type>) {
           std::size_t i{};
           const std::size_t e{p.size()};
           val.write_indent(os << "[\n", val.lvl_ + 1);
@@ -136,7 +134,7 @@ std::ostream& operator<<(std::ostream& os, json_formatter<J> const& val) {
           }
           val.write_indent(os << '\n', val.lvl_) << ']';
           // val.write_indent(os, val.lvl_);
-        } else if constexpr (std::same_as<T, typename json::tag_dict_type>) {
+        } else if constexpr (std::same_as<T, typename json::dict_type>) {
           std::size_t i{};
           const std::size_t e{p.size()};
 

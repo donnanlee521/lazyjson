@@ -88,9 +88,9 @@ json::tag_return_type json::tag_json_value(
   if (!int_tagged) {
     return {ib, json_tag_err::integer_parse_fail};
   }
-  auto [flt_tagged, fb] = floating_point_tag_type::tag(b, e, ib - b);
+  auto [flt_tagged, fb] = floating_tag_type::tag(b, e, ib - b);
   if (flt_tagged) {
-    tags.emplace<floating_type>(std::in_place_type<floating_point_tag_type>,
+    tags.emplace<floating_type>(std::in_place_type<floating_tag_type>,
                                 flt_tagged);
     b = fb;
   } else {
@@ -118,7 +118,7 @@ json::tag_return_type json::tag_json_map(value_type& dict,
   b = {self_type::fastforward_view(b, e)};
   json_tag_err terr{};
 
-  std::vector<tag_dict_type::value_type> temp{};
+  std::vector<dict_type::value_type> temp{};
 
   if (b == e) {
     terr = json_tag_err::invalid_eos;
@@ -138,7 +138,7 @@ json::tag_return_type json::tag_json_map(value_type& dict,
     }
     ++b;
 
-    tag_dict_type::value_type& kv = temp.emplace_back();
+    dict_type::value_type& kv = temp.emplace_back();
     std::tie(b, terr) = json::tag_json_key(kv.first, b, e);
     if (terr != json_tag_err{}) {
       goto err_out_of_loop;
@@ -173,12 +173,12 @@ json::tag_return_type json::tag_json_map(value_type& dict,
   } while (b < e);
   return {b, json_tag_err::invalid_eos};
 out_of_dict_parse_loop:
-  dict.emplace<tag_dict_type>(std::move(temp));
+  dict.emplace<dict_type>(std::move(temp));
 err_out_of_loop:
   return {b, terr};
 }
 
-json::tag_return_type json::tag_json_array(tag_array_type& arr,
+json::tag_return_type json::tag_json_array(array_type& arr,
                                            char_const_pointer_type b,
                                            const char_const_pointer_type e) {
   json_tag_err terr{};
@@ -230,7 +230,7 @@ json::tag_return_type json::tag_json(json& json, char_const_pointer_type b,
     }
     case '[': {
       std::tie(b, terr) =
-          tag_json_array(json.item.emplace<tag_array_type>(), ++b, e);
+          tag_json_array(json.item.emplace<array_type>(), ++b, e);
       break;
     }
     case '"': {
@@ -259,21 +259,21 @@ json::tag_return_type json::tag_json(json& json, char_const_pointer_type b,
 }
 
 json::json(std::string_view val) : item{std::in_place_type<string_type>, val} {}
-json::json(tag_array_type&& arr) noexcept
-    : item{std::in_place_type<tag_array_type>, std::move(arr)} {}
-json::json(tag_dict_type&& dict) noexcept
-    : item{std::in_place_type<tag_dict_type>, std::move(dict)} {}
+json::json(array_type&& arr) noexcept
+    : item{std::in_place_type<array_type>, std::move(arr)} {}
+json::json(dict_type&& dict) noexcept
+    : item{std::in_place_type<dict_type>, std::move(dict)} {}
 
 json& json::operator[](std::size_t idx) { return this->get_array()[idx]; }
 json const& json::operator[](std::size_t idx) const {
   return this->get_array()[idx];
 }
 json& json::operator[](std::basic_string_view<char_type> key) {
-  return this->get_container_of<tag_dict_type, true>()[key];
+  return this->get_container_of<dict_type, true>()[key];
 }
 
 json const& json::operator[](std::basic_string_view<char_type> key) const {
-  return this->get_container_of<tag_dict_type>().at(key);
+  return this->get_container_of<dict_type>().at(key);
 }
 
 json& json::at(std::size_t idx) { return this->get_array().at(idx); }
@@ -305,11 +305,11 @@ const json& json::parse_all() const {
                       std::same_as<T, integer_type> ||
                       std::same_as<T, floating_type>) {
           v.parse();
-        } else if constexpr (std::same_as<T, tag_array_type>) {
+        } else if constexpr (std::same_as<T, array_type>) {
           for (const auto& j : v) {
             j.parse_all();
           }
-        } else if constexpr (std::same_as<T, tag_dict_type>) {
+        } else if constexpr (std::same_as<T, dict_type>) {
           for (const auto& [_, j] : v) {
             j.parse_all();
           }
@@ -321,7 +321,7 @@ const json& json::parse_all() const {
 }
 
 std::vector<std::string_view> json::keys() const {
-  auto const& dict = this->get_container_of<tag_dict_type>();
+  auto const& dict = this->get_container_of<dict_type>();
 
   std::vector<std::string_view> rkey{};
   rkey.reserve(dict.size());
@@ -384,7 +384,7 @@ std::ostream& operator<<(std::ostream& os, json const& self) {
   std::visit(
       [&os](auto&& p) {
         using T = std::decay_t<decltype(p)>;
-        if constexpr (std::same_as<T, typename json::tag_array_type>) {
+        if constexpr (std::same_as<T, typename json::array_type>) {
           std::size_t i{};
           const std::size_t e{p.size()};
           os << '[';
@@ -395,7 +395,7 @@ std::ostream& operator<<(std::ostream& os, json const& self) {
             }
           }
           os << ']';
-        } else if constexpr (std::same_as<T, typename json::tag_dict_type>) {
+        } else if constexpr (std::same_as<T, typename json::dict_type>) {
           std::size_t i{};
           const std::size_t e{p.size()};
           os << '{';

@@ -58,14 +58,14 @@ class json {
   using floating_type = json_float<double>;
 
   using integer_tag_type = integer_type::tag_type;
-  using floating_point_tag_type = floating_type::tag_type;
+  using floating_tag_type = floating_type::tag_type;
 
-  using tag_array_type = json_array;
-  using tag_dict_type = json_dict;
+  using array_type = json_array;
+  using dict_type = json_dict;
 
   using value_type =
       std::variant<null_type, boolean_type, string_type, integer_type,
-                   floating_type, tag_array_type, tag_dict_type>;
+                   floating_type, array_type, dict_type>;
 
   constexpr static std::size_t VALUE_ARR_TAG_IDX{5};
   constexpr static std::size_t VALUE_DICT_TAG_IDX{6};
@@ -108,7 +108,7 @@ class json {
   static tag_return_type tag_json_map(value_type& tag,
                                       char_const_pointer_type beg,
                                       const char_const_pointer_type end);
-  static tag_return_type tag_json_array(tag_array_type& arr,
+  static tag_return_type tag_json_array(array_type& arr,
                                         char_const_pointer_type beg,
                                         const char_const_pointer_type end);
 
@@ -124,8 +124,8 @@ class json {
   json(T val) noexcept;
   json(std::floating_point auto val) noexcept;
   json(std::string_view val);
-  json(tag_array_type&& arr) noexcept;
-  json(tag_dict_type&& dict) noexcept;
+  json(array_type&& arr) noexcept;
+  json(dict_type&& dict) noexcept;
 
   template <std::integral V>
   operator V() const;
