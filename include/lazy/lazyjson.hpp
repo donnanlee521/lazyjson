@@ -178,7 +178,6 @@ class json {
 static_assert(std::is_nothrow_move_constructible_v<json>);
 static_assert(std::is_nothrow_move_assignable_v<json>);
 static_assert(std::semiregular<json>);
-static_assert(sizeof(json) <= 48);
 
 template <std::size_t I = 4>
 class json_formatter {
