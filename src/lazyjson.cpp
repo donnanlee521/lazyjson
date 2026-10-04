@@ -173,6 +173,7 @@ json::tag_return_type json::tag_json_map(value_type& dict,
   } while (b < e);
   return {b, json_tag_err::invalid_eos};
 out_of_dict_parse_loop:
+  temp.shrink_to_fit();
   dict.emplace<dict_type>(std::move(temp));
 err_out_of_loop:
   return {b, terr};
@@ -207,6 +208,7 @@ json::tag_return_type json::tag_json_array(array_type& arr,
       ++b;
     } else if (*b == ']') {
       ++b;
+      arr.shrink_to_fit();
       goto out_of_array_parser;
     }
   } while (b < e);
