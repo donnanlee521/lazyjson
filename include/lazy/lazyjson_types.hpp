@@ -398,7 +398,7 @@ struct json_float_tag : public json_integer_tag {
 
 template <>
 struct std::hash<lazy::json_key> {
-  constexpr std::size_t operator()(lazy::json_key const& k) noexcept {
+  constexpr std::size_t operator()(lazy::json_key const& k) const noexcept {
     return std::hash<std::string_view>{}(k);
   }
 };
