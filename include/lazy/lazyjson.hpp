@@ -9,10 +9,12 @@
 #include <functional>
 #include <iostream>
 #include <istream>
+#include <map>
 #include <memory>
 #include <ostream>
 #include <string_view>
 #include <type_traits>
+#include <unordered_map>
 #include <utility>
 #include <variant>
 #include <vector>
@@ -41,7 +43,7 @@ class json_formatter;
 
 using json_key_type = json_key;
 using json_array = std::vector<json>;
-using json_dict = json_ordered_dict<json_key_type, json>;
+using json_dict = std::map<json_key_type, json>;
 
 class json {
   using self_type = json;
@@ -176,6 +178,7 @@ class json {
 static_assert(std::is_nothrow_move_constructible_v<json>);
 static_assert(std::is_nothrow_move_assignable_v<json>);
 static_assert(std::semiregular<json>);
+static_assert(sizeof(json) <= 48);
 
 template <std::size_t I = 4>
 class json_formatter {

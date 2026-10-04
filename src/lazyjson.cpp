@@ -118,18 +118,18 @@ json::tag_return_type json::tag_json_map(value_type& dict,
   b = {self_type::fastforward_view(b, e)};
   json_tag_err terr{};
 
-  std::vector<dict_type::value_type> temp{};
-
+  auto& new_dict = dict.emplace<dict_type>();
   if (b == e) {
     terr = json_tag_err::invalid_eos;
     goto err_out_of_loop;
   }
+
   if (*b == '}') {
     ++b;
     goto out_of_dict_parse_loop;
   }
 
-  temp.reserve(4);
+  // new_dict.reserve(4);
   do {
     // parse key section
     if (*b != '"') {
@@ -138,9 +138,16 @@ json::tag_return_type json::tag_json_map(value_type& dict,
     }
     ++b;
 
-    dict_type::value_type& kv = temp.emplace_back();
-    std::tie(b, terr) = json::tag_json_key(kv.first, b, e);
+    json_key k{};
+    std::tie(b, terr) = json::tag_json_key(k, b, e);
     if (terr != json_tag_err{}) {
+      goto err_out_of_loop;
+    }
+
+    // std::cout << k << std::endl;
+    auto [emplaced_iter, eret] = new_dict.emplace(std::move(k), json{});
+    if (!eret) {
+      terr = json_tag_err::dict_key_duplicate;
       goto err_out_of_loop;
     }
 
@@ -155,7 +162,7 @@ json::tag_return_type json::tag_json_map(value_type& dict,
     }
     ++b;
 
-    std::tie(b, terr) = json::tag_json(kv.second, b, e);
+    std::tie(b, terr) = json::tag_json(emplaced_iter->second, b, e);
     if (terr != json_tag_err{}) {
       goto err_out_of_loop;
     }
@@ -173,8 +180,7 @@ json::tag_return_type json::tag_json_map(value_type& dict,
   } while (b < e);
   return {b, json_tag_err::invalid_eos};
 out_of_dict_parse_loop:
-  temp.shrink_to_fit();
-  dict.emplace<dict_type>(std::move(temp));
+  // dict.emplace<dict_type>(std::move(temp));
 err_out_of_loop:
   return {b, terr};
 }
