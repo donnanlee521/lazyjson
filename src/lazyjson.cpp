@@ -90,12 +90,10 @@ json::tag_return_type json::tag_json_value(
   }
   auto [flt_tagged, fb] = floating_tag_type::tag(b, e, ib - b);
   if (flt_tagged) {
-    tags.emplace<floating_type>(std::in_place_type<floating_tag_type>,
-                                flt_tagged);
+    tags.emplace<floating_type>(flt_tagged);
     b = fb;
   } else {
-    tags.emplace<integer_type>(std::in_place_type<integer_tag_type>,
-                               int_tagged);
+    tags.emplace<integer_type>(int_tagged);
     b = ib;
   }
   return {b, json_tag_err::success};
@@ -513,6 +511,7 @@ std::istream& operator>>(std::istream& is, json_container& self) {
   if (parsed.empty()) {
     return is;
   }
+  parsed.shrink_to_fit();
   self = json_container{std::move(parsed)};
 
   return is;

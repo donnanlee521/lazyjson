@@ -139,50 +139,67 @@ bool operator==(json_key const& a, std::string_view b) noexcept {
 }
 
 std::errc json_string::parse() const {
-  if (this->item.index() == json_string::esc_inc_tag_idx) {
-    auto&& [unescaped, _, er] = lazy::utils::unescape_string(
-        std::get<json_string::esc_inc_tag_idx>(this->item));
+  if (this->index_ == self_type::esc_inc_tag_idx) {
+    auto&& [unescaped, _, er] =
+        lazy::utils::unescape_string(this->item_.escaped_tag_);
     if (er != std::errc{}) {
       return er;
     }
-    this->item.emplace<parsed_type>(std::move(unescaped));
+    this->item_.parsed_ = std::move(unescaped);
+    this->index_ = self_type::parsed_idx;
   }
   return std::errc{};
 }
 
 json_string::value_type json_string::get() const {
-  if (this->index() == json_string::esc_not_inc_tag_idx) {
-    return std::get<json_string::esc_not_inc_tag_idx>(this->item);
+  if (this->index_ == self_type::esc_not_inc_tag_idx) {
+    return this->item_.non_escaped_tag_;
   }
   if (this->parse() != std::errc{}) {
     throw std::invalid_argument{"invalid escaped string"};
   }
-  return std::get<json_string::parsed_idx>(this->item);
+  return this->item_.parsed_;
 }
 
-std::size_t json_string::index() const noexcept { return this->item.index(); }
+std::size_t json_string::index() const noexcept { return this->index_; }
 
 std::size_t json_string::size() const noexcept {
-  return std::visit(
-      [](auto const& visited) noexcept -> std::size_t {
-        return visited.size();
-      },
-      this->item);
+  std::size_t size{};
+  switch (this->index_) {
+    case self_type::esc_not_inc_tag_idx: {
+      size = item_.non_escaped_tag_.size();
+    }
+    case self_type::esc_inc_tag_idx: {
+      size = item_.escaped_tag_.size();
+    }
+    case self_type::parsed_idx: {
+      size = item_.parsed_.size();
+    }
+  }
+  return size;
 }
 
 json_string::operator value_type() const { return this->get(); }
 
 std::ostream& operator<<(std::ostream& os, json_string const& obj) {
-  std::visit(
-      [&os]<class T>(T const& v) {
-        if constexpr (std::same_as<T, json_string::tag_type>) {
-          os << '"' << v << '"';
-        } else {
-          os << '"' << lazy::utils::escape_string(v) << '"';
-        }
-      },
-      obj.item);
-  return os;
+  os << '"';
+  switch (obj.index_) {
+    case json_string::esc_not_inc_tag_idx: {
+      os << obj.item_.non_escaped_tag_;
+      break;
+    }
+    case json_string::esc_inc_tag_idx: {
+      os << obj.item_.escaped_tag_;
+      break;
+    }
+    case json_string::parsed_idx: {
+      os << lazy::utils::escape_string(obj.item_.parsed_);
+      break;
+    }
+    default: {
+    }
+  }
+  return os << '"';
 }
 
 }  // namespace lazy

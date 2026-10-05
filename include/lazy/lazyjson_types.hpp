@@ -64,7 +64,6 @@ struct json_integer_tag : public json_tag_base<char> {
   constexpr json_integer_tag(char_type const* number_stt_ptr, size_type size,
                              bool is_neg) noexcept;
 
-  inline std::string to_string() const;
   static constexpr std::pair<self_type, char_type const*> tag(
       char_type const* b, char_type const* e) noexcept;
   template <std::integral V>
@@ -154,23 +153,31 @@ std::ostream& operator<<(std::ostream& os, json_boolean obj);
 
 static_assert(lazyjson_type_protocol<json_boolean>);
 
+enum class json_tag_status : uint8_t {
+  JSON_TAG_STATUS_TAG = 0,
+  JSON_TAG_STATUS_PARSED
+};
+
 template <std::integral IntT>
 class json_integer {
  public:
+  using char_type = char;
+  using size_type = std::uint32_t;
+
   using value_type = IntT;
   using tag_type = json_integer_tag;
 
  private:
-  using container_type = std::variant<value_type, tag_type>;
-  mutable container_type item;
+  mutable union {
+    tag_type tag_{};
+    value_type val_;
+  } item_;
+  mutable json_tag_status status_{};
 
  public:
-  template <typename U, typename... Args>
-  constexpr json_integer(std::in_place_type_t<U> inplace_holder,
-                         Args&&... args) noexcept;
+  constexpr json_integer(tag_type const& tag) noexcept;
   constexpr json_integer(value_type val) noexcept;
 
-  constexpr std::size_t index() const noexcept;
   std::errc parse() const;
   value_type get() const;
 
@@ -179,7 +186,52 @@ class json_integer {
                                   json_integer<IntU> const& obj);
 };
 
+template <std::integral IntT>
+constexpr json_integer<IntT>::json_integer(tag_type const& tag) noexcept
+    : item_{.tag_ = tag}, status_{json_tag_status::JSON_TAG_STATUS_TAG} {}
+
+template <std::integral IntT>
+constexpr json_integer<IntT>::json_integer(value_type val) noexcept
+    : item_{.val_ = val}, status_{json_tag_status::JSON_TAG_STATUS_PARSED} {}
+
+template <std::integral IntT>
+std::errc json_integer<IntT>::parse() const {
+  if (this->status_ == json_tag_status::JSON_TAG_STATUS_TAG) {
+    auto parsed = this->item_.tag_.template parse<IntT>();
+    if (parsed.err != std::errc{}) {
+      return parsed.err;
+    }
+    this->item_.val_ = parsed.value;
+    this->status_ = json_tag_status::JSON_TAG_STATUS_PARSED;
+  }
+  return std::errc{};
+}
+
+template <std::integral IntT>
+json_integer<IntT>::value_type json_integer<IntT>::get() const {
+  if (this->parse() != std::errc{}) {
+    throw std::invalid_argument{"failed to parse integer string"};
+  }
+  return this->item_.val_;
+}
+
+template <std::integral IntT>
+std::ostream& operator<<(std::ostream& os, json_integer<IntT> const& obj) {
+  switch (obj.status_) {
+    case json_tag_status::JSON_TAG_STATUS_TAG: {
+      os << obj.item_.tag_;
+      break;
+    }
+    case json_tag_status::JSON_TAG_STATUS_PARSED: {
+      os << obj.item_.val_;
+      break;
+    }
+  }
+  return os;
+}
+
 static_assert(lazyjson_lazy_type_protocol<json_integer<int>>);
+static_assert(sizeof(json_integer<std::size_t>) <= 24);
 
 template <std::floating_point FloatT>
 class json_float {
@@ -189,15 +241,16 @@ class json_float {
 
  private:
   using container_type = std::variant<value_type, tag_type>;
-  mutable container_type item{};
+  mutable union {
+    tag_type tag_{};
+    value_type val_;
+  } item_;
+  mutable json_tag_status status_;
 
  public:
-  template <typename U, typename... Args>
-  constexpr json_float(std::in_place_type_t<U> inplace_holder,
-                       Args&&... args) noexcept;
+  constexpr json_float(tag_type const& tag) noexcept;
   constexpr json_float(value_type val) noexcept;
 
-  constexpr std::size_t index() const noexcept;
   std::errc parse() const;
   value_type get() const;
 
@@ -206,7 +259,51 @@ class json_float {
                                   json_float<FloatU> const& obj);
 };
 
+template <std::floating_point FloatT>
+constexpr json_float<FloatT>::json_float(tag_type const& tag) noexcept
+    : item_{.tag_ = tag}, status_{json_tag_status::JSON_TAG_STATUS_TAG} {}
+
+template <std::floating_point FloatT>
+constexpr json_float<FloatT>::json_float(value_type val) noexcept
+    : item_{.val_ = val}, status_{json_tag_status::JSON_TAG_STATUS_PARSED} {}
+
+template <std::floating_point FloatT>
+std::errc json_float<FloatT>::parse() const {
+  if (this->status_ == json_tag_status::JSON_TAG_STATUS_TAG) {
+    auto parsed = this->item_.tag_.template parse<value_type>();
+    if (parsed.err != std::errc{}) {
+      return parsed.err;
+    }
+    this->item_.val_ = parsed.value;
+  }
+  return std::errc{};
+}
+
+template <std::floating_point FloatT>
+json_float<FloatT>::value_type json_float<FloatT>::get() const {
+  if (this->parse() != std::errc{}) {
+    throw std::invalid_argument{"failed to parse float string"};
+  }
+  return this->item_.val_;
+}
+
+template <std::floating_point FloatU>
+std::ostream& operator<<(std::ostream& os, json_float<FloatU> const& obj) {
+  switch (obj.status_) {
+    case json_tag_status::JSON_TAG_STATUS_TAG: {
+      os << obj.item_.tag_;
+      break;
+    }
+    case json_tag_status::JSON_TAG_STATUS_PARSED: {
+      os << obj.item_.val_;
+      break;
+    }
+  }
+  return os;
+}
+
 static_assert(lazyjson_lazy_type_protocol<json_float<float>>);
+static_assert(sizeof(json_float<float>) <= 24);
 
 class json_key {
  public:
@@ -327,16 +424,51 @@ class json_string {
                                                // to value type when get called)
                                     parsed_type>;
 
-  constexpr static std::size_t esc_not_inc_tag_idx{0};
-  constexpr static std::size_t esc_inc_tag_idx{esc_not_inc_tag_idx + 1};
-  constexpr static std::size_t parsed_idx{esc_inc_tag_idx + 1};
+  constexpr static std::uint8_t esc_not_inc_tag_idx{0};
+  constexpr static std::uint8_t esc_inc_tag_idx{esc_not_inc_tag_idx + 1};
+  constexpr static std::uint8_t parsed_idx{esc_inc_tag_idx + 1};
 
  private:
   using self_type = json_string;
-  mutable element_type item;
+
+  mutable union _u {
+    value_type non_escaped_tag_{};
+    value_type escaped_tag_;
+    parsed_type parsed_;
+
+    constexpr ~_u() noexcept {};
+  } item_;
+
+  mutable std::uint8_t index_{};
+
+  template <bool NoCheck = false>
+  parsed_type move_if_string() && noexcept {
+    if constexpr (NoCheck) {
+      return std::move(item_.parsed_);
+    } else {
+      std::string moved{};
+      if (this->index_ == self_type::parsed_idx) {
+        moved = std::move(item_.parsed_);
+      }
+      return moved;
+    }
+  }
+
+  void delete_if_string() noexcept {
+    if (this->index_ == self_type::parsed_idx) {
+      std::destroy_at(&item_.parsed_);
+    }
+  }
 
  public:
   constexpr json_string() noexcept = default;
+  ~json_string() noexcept;
+
+  json_string(self_type const& other);
+  self_type& operator=(json_string const& other);
+
+  json_string(self_type&&) noexcept;
+  self_type& operator=(json_string&& other) noexcept;
 
   template <std::size_t I, typename... Args>
   explicit constexpr json_string(
@@ -355,7 +487,108 @@ class json_string {
   friend std::ostream& operator<<(std::ostream& os, json_string const& obj);
 };  // class json_string
 
+template <std::size_t I, typename... Args>
+constexpr json_string::json_string(
+    std::in_place_index_t<I> ipi,
+    Args&&... args) noexcept(I <= json_string::esc_inc_tag_idx)
+    : item_{}, index_{I} {
+  switch (I) {
+    case self_type::esc_not_inc_tag_idx:
+    case self_type::esc_inc_tag_idx: {
+      std::construct_at(&item_.non_escaped_tag_, std::forward<Args>(args)...);
+      // item_.non_escaped_tag_ = value_type{};
+      break;
+    }
+    case self_type::parsed_idx: {
+      std::construct_at(&item_.parsed_, std::forward<Args>(args)...);
+      break;
+    }
+    default: {
+      throw std::out_of_range{"union index out of range"};
+    }
+  }
+}
+
+constexpr json_string::json_string(char_type const* c, std::size_t len)
+    : json_string(std::in_place_index<json_string::parsed_idx>, c, len) {}
+
+constexpr json_string::json_string(std::string_view sv)
+    : json_string(std::in_place_index<json_string::parsed_idx>, sv) {}
+
+constexpr json_string::json_string(char_type const* c)
+    : json_string(std::in_place_index<json_string::parsed_idx>, c) {}
+
+inline json_string::json_string(self_type const& other)
+    : item_{}, index_{other.index_} {
+  switch (this->index_) {
+    case self_type::esc_not_inc_tag_idx:
+    case self_type::esc_inc_tag_idx: {
+      std::construct_at(&item_.non_escaped_tag_, other.item_.non_escaped_tag_);
+      break;
+    }
+    case self_type::parsed_idx: {
+      std::construct_at(&item_.parsed_, other.item_.parsed_);
+      break;
+    }
+  }
+}
+
+inline json_string::self_type& json_string::operator=(self_type const& other) {
+  this->delete_if_string();
+  this->index_ = other.index_;
+  switch (this->index_) {
+    case self_type::esc_not_inc_tag_idx:
+    case self_type::esc_inc_tag_idx: {
+      item_.non_escaped_tag_ = other.item_.non_escaped_tag_;
+      break;
+    }
+    case self_type::parsed_idx: {
+      item_.parsed_ = other.item_.parsed_;
+      break;
+    }
+  }
+  return *this;
+}
+
+inline json_string::json_string(self_type&& other) noexcept
+    : item_{}, index_{other.index_} {
+  switch (this->index_) {
+    case self_type::esc_not_inc_tag_idx:
+    case self_type::esc_inc_tag_idx: {
+      std::construct_at(&item_.non_escaped_tag_,
+                        std::move(other.item_.non_escaped_tag_));
+      break;
+    }
+    case self_type::parsed_idx: {
+      std::construct_at(&item_.parsed_,
+                        std::move(other).move_if_string<true>());
+      break;
+    }
+  }
+}
+
+inline json_string::self_type& json_string::operator=(
+    self_type&& other) noexcept {
+  this->delete_if_string();
+  this->index_ = other.index_;
+  switch (this->index_) {
+    case self_type::esc_not_inc_tag_idx:
+    case self_type::esc_inc_tag_idx: {
+      item_.non_escaped_tag_ = std::move(other.item_.non_escaped_tag_);
+      break;
+    }
+    case self_type::parsed_idx: {
+      item_.parsed_ = std::move(other).move_if_string<true>();
+      break;
+    }
+  }
+  return *this;
+}
+
+inline json_string::~json_string() noexcept { this->delete_if_string(); }
+
 static_assert(lazyjson_lazy_type_protocol<json_string>);
+static_assert(sizeof(json_string) <= 32);
 
 namespace experimental {
 

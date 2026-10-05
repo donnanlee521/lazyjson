@@ -24,16 +24,6 @@ constexpr json_integer_tag::json_integer_tag(char_type const* number_stt_ptr,
                                              bool is_neg) noexcept
     : super_type{number_stt_ptr, size}, is_neg_{is_neg} {}
 
-std::string json_integer_tag::to_string() const {
-  std::string ret(this->size_ + this->is_neg_, '\0');
-  auto beg = ret.begin();
-  if (this->is_neg_) {
-    *beg++ = '-';
-  }
-  std::uninitialized_copy_n(this->data_, this->size_, beg);
-  return ret;
-};
-
 constexpr std::pair<json_integer_tag::self_type,
                     json_integer_tag::char_type const*>
 json_integer_tag::tag(char_type const* b, char_type const* e) noexcept {
@@ -159,105 +149,6 @@ constexpr json_boolean::value_type json_boolean::get() const noexcept {
 constexpr json_boolean::operator std::string_view() const noexcept {
   return this->item ? true_exp : false_exp;
 }
-
-template <std::integral IntT>
-template <typename U, typename... Args>
-constexpr json_integer<IntT>::json_integer(
-    std::in_place_type_t<U> inplace_holder, Args&&... args) noexcept
-    : item{inplace_holder, std::forward<Args>(args)...} {}
-
-template <std::integral IntT>
-constexpr json_integer<IntT>::json_integer(value_type val) noexcept
-    : item{std::in_place_type<value_type>, val} {}
-
-template <std::integral IntT>
-constexpr std::size_t json_integer<IntT>::index() const noexcept {
-  return this->item.index();
-}
-
-template <std::integral IntT>
-std::errc json_integer<IntT>::parse() const {
-  if (std::holds_alternative<tag_type>(this->item)) {
-    auto const& tagged = std::get<tag_type>(this->item);
-    auto parsed = tagged.template parse<value_type>();
-    if (parsed.err != std::errc{}) {
-      return parsed.err;
-    }
-    item.template emplace<value_type>(parsed.value);
-  }
-  return std::errc{};
-}
-
-template <std::integral IntT>
-json_integer<IntT>::value_type json_integer<IntT>::get() const {
-  if (this->parse() != std::errc{}) {
-    throw std::invalid_argument{"failed to parse integer string"};
-  }
-  return std::get<value_type>(this->item);
-}
-
-template <std::integral IntT>
-std::ostream& operator<<(std::ostream& os, json_integer<IntT> const& obj) {
-  std::visit([&os](auto&& parsed) -> void { os << parsed; }, obj.item);
-  return os;
-}
-
-template <std::floating_point FloatT>
-template <typename U, typename... Args>
-constexpr json_float<FloatT>::json_float(std::in_place_type_t<U> inplace_holder,
-                                         Args&&... args) noexcept
-    : item{inplace_holder, std::forward<Args>(args)...} {}
-
-template <std::floating_point FloatT>
-constexpr json_float<FloatT>::json_float(value_type val) noexcept
-    : item{std::in_place_type<value_type>, val} {}
-
-template <std::floating_point FloatT>
-constexpr std::size_t json_float<FloatT>::index() const noexcept {
-  return this->item.index();
-}
-
-template <std::floating_point FloatT>
-std::errc json_float<FloatT>::parse() const {
-  if (std::holds_alternative<tag_type>(item)) {
-    auto const& tagged = std::get<tag_type>(item);
-    auto parsed = tagged.template parse<value_type>();
-    if (parsed.err != std::errc{}) {
-      return parsed.err;
-    }
-    this->item.template emplace<value_type>(parsed.value);
-  }
-  return std::errc{};
-}
-
-template <std::floating_point FloatT>
-json_float<FloatT>::value_type json_float<FloatT>::get() const {
-  if (this->parse() != std::errc{}) {
-    throw std::invalid_argument{"failed to parse float string"};
-  }
-  return std::get<value_type>(this->item);
-}
-
-template <std::floating_point FloatU>
-std::ostream& operator<<(std::ostream& os, json_float<FloatU> const& obj) {
-  std::visit([&os](auto&& parsed) -> void { os << parsed; }, obj.item);
-  return os;
-}
-
-template <std::size_t I, typename... Args>
-constexpr json_string::json_string(
-    std::in_place_index_t<I> ipi,
-    Args&&... args) noexcept(I <= json_string::esc_inc_tag_idx)
-    : item{ipi, std::forward<Args>(args)...} {}
-
-constexpr json_string::json_string(char_type const* c, std::size_t len)
-    : json_string(std::in_place_index<json_string::parsed_idx>, c, len) {}
-
-constexpr json_string::json_string(std::string_view sv)
-    : json_string(std::in_place_index<json_string::parsed_idx>, sv) {}
-
-constexpr json_string::json_string(char_type const* c)
-    : json_string(std::in_place_index<json_string::parsed_idx>, c) {}
 
 namespace experimental {
 
