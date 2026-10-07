@@ -413,24 +413,22 @@ bool operator==(json_key const& a, std::string_view b) noexcept;
 static_assert(sizeof(json_key) <= 24);
 static_assert(std::three_way_comparable<json_key>);
 
+template <typename CharT>
 class json_string {
  public:
-  using char_type = char;
+  using char_type = CharT;
   using value_type = std::basic_string_view<char_type>;
   using parsed_type = std::basic_string<char_type>;
   using tag_type = value_type;
-  using element_type = std::variant<tag_type,  // tag without escape seq
-                                    tag_type,  // tag with escape seq (converted
-                                               // to value type when get called)
-                                    parsed_type>;
 
-  constexpr static std::uint8_t esc_not_inc_tag_idx{0};
-  constexpr static std::uint8_t esc_inc_tag_idx{esc_not_inc_tag_idx + 1};
-  constexpr static std::uint8_t parsed_idx{esc_inc_tag_idx + 1};
+  enum class _t : std::uint8_t {
+    esc_not_inc_tag_idx = 0,
+    esc_inc_tag_idx,
+    parsed_idx,
+  };
 
  private:
-  using self_type = json_string;
-
+  using self_type = json_string<CharT>;
   mutable union _u {
     value_type non_escaped_tag_{};
     value_type escaped_tag_;
@@ -439,26 +437,10 @@ class json_string {
     constexpr ~_u() noexcept {};
   } item_;
 
-  mutable std::uint8_t index_{};
+  mutable _t index_{};
 
   template <bool NoCheck = false>
-  parsed_type move_if_string() && noexcept {
-    if constexpr (NoCheck) {
-      return std::move(item_.parsed_);
-    } else {
-      std::string moved{};
-      if (this->index_ == self_type::parsed_idx) {
-        moved = std::move(item_.parsed_);
-      }
-      return moved;
-    }
-  }
-
-  void delete_if_string() noexcept {
-    if (this->index_ == self_type::parsed_idx) {
-      std::destroy_at(&item_.parsed_);
-    }
-  }
+  void delete_if_string(_t index = _t::esc_not_inc_tag_idx) noexcept;
 
  public:
   constexpr json_string() noexcept = default;
@@ -473,7 +455,9 @@ class json_string {
   template <std::size_t I, typename... Args>
   explicit constexpr json_string(
       std::in_place_index_t<I> ipi,
-      Args&&... args) noexcept(I <= json_string::esc_inc_tag_idx);
+      Args&&... args) noexcept(I <=
+                               static_cast<std::size_t>(
+                                   json_string::_t::esc_inc_tag_idx));
   explicit constexpr json_string(char_type const* c, std::size_t len);
   constexpr json_string(std::string_view sv);
   constexpr json_string(char_type const* c);
@@ -484,111 +468,239 @@ class json_string {
   std::size_t size() const noexcept;
   operator value_type() const;
 
-  friend std::ostream& operator<<(std::ostream& os, json_string const& obj);
+  template <typename CharU>
+  friend std::ostream& operator<<(std::ostream& os,
+                                  json_string<CharU> const& obj);
 };  // class json_string
 
+template <typename CharT>
 template <std::size_t I, typename... Args>
-constexpr json_string::json_string(
+constexpr json_string<CharT>::json_string(
     std::in_place_index_t<I> ipi,
-    Args&&... args) noexcept(I <= json_string::esc_inc_tag_idx)
+    Args&&... args) noexcept(I <=
+                             static_cast<std::size_t>(
+                                 json_string::_t::esc_inc_tag_idx))
     : item_{}, index_{I} {
-  switch (I) {
-    case self_type::esc_not_inc_tag_idx:
-    case self_type::esc_inc_tag_idx: {
-      std::construct_at(&item_.non_escaped_tag_, std::forward<Args>(args)...);
-      // item_.non_escaped_tag_ = value_type{};
-      break;
-    }
-    case self_type::parsed_idx: {
-      std::construct_at(&item_.parsed_, std::forward<Args>(args)...);
-      break;
-    }
-    default: {
-      throw std::out_of_range{"union index out of range"};
+  if constexpr (I == static_cast<std::size_t>(self_type::_t::parsed_idx)) {
+    std::construct_at(&item_.parsed_, std::forward<Args>(args)...);
+  } else {
+    std::construct_at(&item_.non_escaped_tag_, std::forward<Args>(args)...);
+  }
+}
+
+template <typename CharT>
+template <bool NoCheck>
+void json_string<CharT>::delete_if_string(_t idx) noexcept {
+  if constexpr (NoCheck) {
+    std::destroy_at(&item_.parsed_);
+    this->index_ = idx;
+  } else {
+    if (this->index_ == self_type::_t::parsed_idx) {
+      std::destroy_at(&item_.parsed_);
+      this->index_ = idx;
     }
   }
 }
 
-constexpr json_string::json_string(char_type const* c, std::size_t len)
-    : json_string(std::in_place_index<json_string::parsed_idx>, c, len) {}
+template <typename CharT>
+constexpr json_string<CharT>::json_string(char_type const* c, std::size_t len)
+    : json_string(std::in_place_index<static_cast<std::size_t>(
+                      json_string::_t::parsed_idx)>,
+                  c, len) {}
 
-constexpr json_string::json_string(std::string_view sv)
-    : json_string(std::in_place_index<json_string::parsed_idx>, sv) {}
+template <typename CharT>
+constexpr json_string<CharT>::json_string(std::string_view sv)
+    : json_string(std::in_place_index<static_cast<std::size_t>(
+                      json_string::_t::parsed_idx)>,
+                  sv) {}
 
-constexpr json_string::json_string(char_type const* c)
-    : json_string(std::in_place_index<json_string::parsed_idx>, c) {}
+template <typename CharT>
+constexpr json_string<CharT>::json_string(char_type const* c)
+    : json_string(std::in_place_index<static_cast<std::size_t>(
+                      json_string::_t::parsed_idx)>,
+                  c) {}
 
-inline json_string::json_string(self_type const& other)
+template <typename CharT>
+json_string<CharT>::json_string(self_type const& other)
     : item_{}, index_{other.index_} {
   switch (this->index_) {
-    case self_type::esc_not_inc_tag_idx:
-    case self_type::esc_inc_tag_idx: {
+    case self_type::_t::esc_not_inc_tag_idx:
+    case self_type::_t::esc_inc_tag_idx: {
       std::construct_at(&item_.non_escaped_tag_, other.item_.non_escaped_tag_);
       break;
     }
-    case self_type::parsed_idx: {
+    case self_type::_t::parsed_idx: {
       std::construct_at(&item_.parsed_, other.item_.parsed_);
       break;
     }
   }
 }
 
-inline json_string::self_type& json_string::operator=(self_type const& other) {
-  this->delete_if_string();
-  this->index_ = other.index_;
-  switch (this->index_) {
-    case self_type::esc_not_inc_tag_idx:
-    case self_type::esc_inc_tag_idx: {
-      item_.non_escaped_tag_ = other.item_.non_escaped_tag_;
-      break;
+template <typename CharT>
+json_string<CharT>::self_type& json_string<CharT>::operator=(
+    self_type const& other) {
+  if (this->index_ == other.index_) {
+    switch (this->index_) {
+      case self_type::_t::esc_not_inc_tag_idx:
+      case self_type::_t::esc_inc_tag_idx: {
+        item_.non_escaped_tag_ = other.item_.non_escaped_tag_;
+        break;
+      }
+      case self_type::_t::parsed_idx: {
+        item_.parsed_ = other.item_.parsed_;
+        break;
+      }
     }
-    case self_type::parsed_idx: {
-      item_.parsed_ = other.item_.parsed_;
-      break;
+  } else {
+    this->delete_if_string<>(other.index_);
+    switch (this->index_) {
+      case self_type::_t::esc_not_inc_tag_idx:
+      case self_type::_t::esc_inc_tag_idx: {
+        std::construct_at(&item_.non_escaped_tag_,
+                          other.item_.non_escaped_tag_);
+        break;
+      }
+      case self_type::_t::parsed_idx: {
+        std::construct_at(&item_.parsed_, other.item_.parsed_);
+        break;
+      }
     }
   }
   return *this;
 }
 
-inline json_string::json_string(self_type&& other) noexcept
+template <typename CharT>
+json_string<CharT>::json_string(self_type&& other) noexcept
     : item_{}, index_{other.index_} {
   switch (this->index_) {
-    case self_type::esc_not_inc_tag_idx:
-    case self_type::esc_inc_tag_idx: {
+    case self_type::_t::esc_not_inc_tag_idx:
+    case self_type::_t::esc_inc_tag_idx: {
       std::construct_at(&item_.non_escaped_tag_,
                         std::move(other.item_.non_escaped_tag_));
       break;
     }
-    case self_type::parsed_idx: {
-      std::construct_at(&item_.parsed_,
-                        std::move(other).move_if_string<true>());
+    case self_type::_t::parsed_idx: {
+      std::construct_at(&item_.parsed_, std::move(other.item_.parsed_));
       break;
     }
   }
 }
 
-inline json_string::self_type& json_string::operator=(
+template <typename CharT>
+json_string<CharT>::self_type& json_string<CharT>::operator=(
     self_type&& other) noexcept {
-  this->delete_if_string();
-  this->index_ = other.index_;
-  switch (this->index_) {
-    case self_type::esc_not_inc_tag_idx:
-    case self_type::esc_inc_tag_idx: {
-      item_.non_escaped_tag_ = std::move(other.item_.non_escaped_tag_);
-      break;
+  if (this->index_ == other.index_) {
+    switch (this->index_) {
+      case self_type::_t::esc_not_inc_tag_idx:
+      case self_type::_t::esc_inc_tag_idx: {
+        item_.non_escaped_tag_ = std::move(other.item_.non_escaped_tag_);
+        break;
+      }
+      case self_type::_t::parsed_idx: {
+        item_.parsed_ = std::move(other.item_.parsed_);
+        break;
+      }
     }
-    case self_type::parsed_idx: {
-      item_.parsed_ = std::move(other).move_if_string<true>();
-      break;
+  } else {
+    this->delete_if_string<>(other.index_);
+    switch (this->index_) {
+      case self_type::_t::esc_not_inc_tag_idx:
+      case self_type::_t::esc_inc_tag_idx: {
+        std::construct_at(&item_.non_escaped_tag_,
+                          std::move(other.item_.non_escaped_tag_));
+        break;
+      }
+      case self_type::_t::parsed_idx: {
+        std::construct_at(&item_.parsed_, std::move(other.item_.parsed_));
+        break;
+      }
     }
   }
   return *this;
 }
 
-inline json_string::~json_string() noexcept { this->delete_if_string(); }
+template <typename CharT>
+inline json_string<CharT>::~json_string() noexcept {
+  this->delete_if_string();
+}
 
-static_assert(lazyjson_lazy_type_protocol<json_string>);
-static_assert(sizeof(json_string) <= 32);
+template <typename CharT>
+std::errc json_string<CharT>::parse() const {
+  if (this->index_ == self_type::_t::esc_inc_tag_idx) {
+    auto&& [unescaped, _, er] =
+        lazy::utils::unescape_string(this->item_.escaped_tag_);
+    if (er != std::errc{}) {
+      return er;
+    }
+    this->item_.parsed_ = std::move(unescaped);
+    this->index_ = self_type::_t::parsed_idx;
+  }
+  return std::errc{};
+}
+
+template <typename CharT>
+json_string<CharT>::value_type json_string<CharT>::get() const {
+  if (this->index_ == self_type::_t::esc_not_inc_tag_idx) {
+    return this->item_.non_escaped_tag_;
+  }
+  if (this->parse() != std::errc{}) {
+    throw std::invalid_argument{"invalid escaped string"};
+  }
+  return this->item_.parsed_;
+}
+
+template <typename CharT>
+std::size_t json_string<CharT>::index() const noexcept {
+  return this->index_;
+}
+
+template <typename CharT>
+std::size_t json_string<CharT>::size() const noexcept {
+  std::size_t size{};
+  switch (this->index_) {
+    case self_type::_t::esc_not_inc_tag_idx: {
+      size = item_.non_escaped_tag_.size();
+      break;
+    }
+    case self_type::_t::esc_inc_tag_idx: {
+      size = item_.escaped_tag_.size();
+      break;
+    }
+    case self_type::_t::parsed_idx: {
+      size = item_.parsed_.size();
+      break;
+    }
+  }
+  return size;
+}
+
+template <typename CharT>
+json_string<CharT>::operator value_type() const {
+  return this->get();
+}
+
+template <typename CharT>
+std::ostream& operator<<(std::ostream& os, json_string<CharT> const& obj) {
+  os << '"';
+  switch (obj.index_) {
+    case json_string<CharT>::_t::esc_not_inc_tag_idx: {
+      os << obj.item_.non_escaped_tag_;
+      break;
+    }
+    case json_string<CharT>::_t::esc_inc_tag_idx: {
+      os << obj.item_.escaped_tag_;
+      break;
+    }
+    case json_string<CharT>::_t::parsed_idx: {
+      os << lazy::utils::escape_string(obj.item_.parsed_);
+      break;
+    }
+  }
+  return os << '"';
+}
+
+static_assert(lazyjson_lazy_type_protocol<json_string<char>>);
+static_assert(sizeof(json_string<char>) <= 32);
 
 namespace experimental {
 

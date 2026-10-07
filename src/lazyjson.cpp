@@ -72,11 +72,12 @@ json::tag_return_type json::tag_json_string(
   }
   return {b, json_tag_err::invalid_eos};
 true_return:
-  tag = escape_found
-            ? string_type{std::in_place_index<string_type::esc_inc_tag_idx>, _b,
-                          static_cast<std::size_t>(b - _b)}
-            : string_type{std::in_place_index<string_type::esc_not_inc_tag_idx>,
-                          _b, static_cast<std::size_t>(b - _b)};
+  tag = escape_found ? string_type{std::in_place_index<static_cast<std::size_t>(
+                                       string_type::_t::esc_inc_tag_idx)>,
+                                   _b, static_cast<std::size_t>(b - _b)}
+                     : string_type{std::in_place_index<static_cast<std::size_t>(
+                                       string_type::_t::esc_not_inc_tag_idx)>,
+                                   _b, static_cast<std::size_t>(b - _b)};
 
   return {++b, json_tag_err::success};
 }

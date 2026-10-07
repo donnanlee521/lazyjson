@@ -55,7 +55,7 @@ class json {
 
   using null_type = json_null;
   using boolean_type = json_boolean;
-  using string_type = json_string;
+  using string_type = json_string<char_type>;
   using integer_type = json_integer<int64_t>;
   using floating_type = json_float<double>;
 
