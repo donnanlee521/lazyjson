@@ -74,10 +74,10 @@ json::tag_return_type json::tag_json_string(
 true_return:
   tag = escape_found
             ? string_type{std::in_place_index<static_cast<std::size_t>(
-                              string_type::tag_status::esc_inc_tag)>,
+                              json_string_tag_status::esc_inc_tag)>,
                           _b, static_cast<std::size_t>(b - _b)}
             : string_type{std::in_place_index<static_cast<std::size_t>(
-                              string_type::tag_status::esc_not_inc_tag)>,
+                              json_string_tag_status::esc_not_inc_tag)>,
                           _b, static_cast<std::size_t>(b - _b)};
 
   return {++b, json_tag_err::success};
@@ -144,7 +144,6 @@ json::tag_return_type json::tag_json_map(value_type& dict,
       goto err_out_of_loop;
     }
 
-    // std::cout << k << std::endl;
     auto [emplaced_iter, eret] = new_dict.emplace(std::move(k), json{});
     if (!eret) {
       terr = json_tag_err::dict_key_duplicate;
